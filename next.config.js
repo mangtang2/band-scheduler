@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // 1. 에러 무시
+    // 1. 에러 무시 (빌드 성공 최우선)
     typescript: {
       ignoreBuildErrors: true,
     },
@@ -8,15 +8,16 @@ const nextConfig = {
       ignoreDuringBuilds: true,
     },
   
-    // 2. ★ 압축 다시 켜기! (여기 수정됨) ★
-    // 압축을 해야 파일 크기가 줄어서 마지막 포장 단계에서 안 멈춥니다.
-    swcMinify: true, 
-    
-    // 3. 용량 최적화 (유지)
-    output: 'standalone',
+    // 2. 압축은 켜둡니다 (결과물 용량 줄이기 위해)
+    swcMinify: true,
+  
+    // 3. 소스맵 끄기 (메모리 절약)
     productionBrowserSourceMaps: false,
   
-    // 4. 안전 모드 (유지 - 이게 있어야 압축 켜도 안 죽음)
+    // 4. ★ 중요: Standalone 모드 삭제함 ★
+    // (여기서 output: 'standalone' 줄을 없앴습니다. Vercel 기본 방식으로 배포합니다.)
+  
+    // 5. 안전장치 (천천히 일하기)
     experimental: {
       workerThreads: false,
       cpus: 1,
