@@ -1,18 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // 1. 깐깐한 검사 패스 (빌드 속도 UP)
+    // 1. 에러 무시 (통과!)
     typescript: {
       ignoreBuildErrors: true,
     },
     eslint: {
       ignoreDuringBuilds: true,
     },
-    // 2. ★ 메모리 절약 (다이어트) 설정 ★
-    swcMinify: false,  // 코드 압축 끄기 (메모리 많이 먹음)
-    productionBrowserSourceMaps: false, // 지도 파일 생성 끄기
+    
+    // 2. 기존 다이어트 설정
+    swcMinify: false,
+    productionBrowserSourceMaps: false,
     poweredByHeader: false,
-    // 3. (추가) 시간 초과 방지
-    staticPageGenerationTimeout: 120, 
+    
+    // 3. ★ 핵심 필살기: 초경량 모드 ★
+    // (이게 있으면 배포 용량이 획기적으로 줄어듭니다)
+    output: 'standalone',
   };
   
   module.exports = nextConfig;
