@@ -1,23 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // 1. 에러 무시 (빌드 성공 최우선)
-    typescript: {
-      ignoreBuildErrors: true,
-    },
-    eslint: {
-      ignoreDuringBuilds: true,
-    },
+    // 1. 에러 무시
+    typescript: { ignoreBuildErrors: true },
+    eslint: { ignoreDuringBuilds: true },
   
-    // 2. 압축은 켜둡니다 (결과물 용량 줄이기 위해)
+    // 2. ★ 핵심 해결책: "짐 검사 하지 마!" ★
+    // 이 옵션을 끄면 'Collecting build traces' 단계를 건너뜁니다.
+    outputFileTracing: false,
+  
+    // 3. 기존 안전장치 (유지)
     swcMinify: true,
-  
-    // 3. 소스맵 끄기 (메모리 절약)
     productionBrowserSourceMaps: false,
-  
-    // 4. ★ 중요: Standalone 모드 삭제함 ★
-    // (여기서 output: 'standalone' 줄을 없앴습니다. Vercel 기본 방식으로 배포합니다.)
-  
-    // 5. 안전장치 (천천히 일하기)
     experimental: {
       workerThreads: false,
       cpus: 1,
