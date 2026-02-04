@@ -168,7 +168,7 @@ export function generateRecommendations(
           }
         } else {
           // Gap: close previous range
-          const durationMinutes = (rangeEnd - rangeStart) / (60 * 1000)
+          const durationMinutes = (rangeEnd! - rangeStart) / (60 * 1000)
           if (durationMinutes >= minDurationMinutes) {
             const availableAllRequired =
               rangeMembersPresentAllSlots
@@ -181,7 +181,7 @@ export function generateRecommendations(
             )
             slots.push({
               start: new Date(rangeStart),
-              end: new Date(rangeEnd),
+              end: new Date(rangeEnd!),
               durationMinutes,
               memberCount: availableAllRequired.length,
               availableMemberIds: availableAllRequired,
