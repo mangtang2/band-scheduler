@@ -162,7 +162,7 @@ export function generateRecommendations(
             const currentSet = new Set(memberIds)
             rangeMembersPresentAllSlots = new Set(
               Array.from(rangeMembersPresentAllSlots).filter((id) =>
-                currentSet.has(id)
+                currentSet.has(id as string)
               )
             )
           }
