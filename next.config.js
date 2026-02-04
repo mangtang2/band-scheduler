@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // 1. 에러 검사 무시
+    // 1. 에러 무시
     typescript: {
       ignoreBuildErrors: true,
     },
@@ -8,12 +8,15 @@ const nextConfig = {
       ignoreDuringBuilds: true,
     },
   
-    // 2. 용량 줄이기 (Standalone)
+    // 2. ★ 압축 다시 켜기! (여기 수정됨) ★
+    // 압축을 해야 파일 크기가 줄어서 마지막 포장 단계에서 안 멈춥니다.
+    swcMinify: true, 
+    
+    // 3. 용량 최적화 (유지)
     output: 'standalone',
     productionBrowserSourceMaps: false,
   
-    // 3. ★ 핵심: 싱글 스레드 모드 (메모리 폭발 방지) ★
-    // 컴퓨터에게 "욕심내지 말고 코어 1개만 써서 천천히 해"라고 명령합니다.
+    // 4. 안전 모드 (유지 - 이게 있어야 압축 켜도 안 죽음)
     experimental: {
       workerThreads: false,
       cpus: 1,
