@@ -1,20 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // 1. 에러 무시
-    typescript: { ignoreBuildErrors: true },
-    eslint: { ignoreDuringBuilds: true },
-  
-    // 2. ★ 핵심 해결책: "짐 검사 하지 마!" ★
-    // 이 옵션을 끄면 'Collecting build traces' 단계를 건너뜁니다.
-    outputFileTracing: false,
-  
-    // 3. 기존 안전장치 (유지)
-    swcMinify: true,
-    productionBrowserSourceMaps: false,
-    experimental: {
-      workerThreads: false,
-      cpus: 1,
-    },
-  };
-  
-  module.exports = nextConfig;
+  // 빌드 속도를 위해 에러 검사만 건너뜁니다.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  // Vercel용으로 넣었던 잡다한 설정(cpus, outputFileTracing 등)은 전부 삭제!
+};
+
+module.exports = nextConfig;

@@ -43,6 +43,15 @@ export default function CreateRoomPage() {
 
   const removeMember = (index: number) => {
     setMembers(members.filter((_, i) => i !== index))
+    // 멤버를 삭제하면, 곡에 저장된 memberIndices도 함께 정리/시프트해야 합니다.
+    setSongs((prev) =>
+      prev.map((s) => ({
+        ...s,
+        memberIndices: s.memberIndices
+          .filter((i) => i !== index)
+          .map((i) => (i > index ? i - 1 : i)),
+      }))
+    )
   }
 
   const updateMember = (index: number, name: string) => {
@@ -83,18 +92,34 @@ export default function CreateRoomPage() {
 
     try {
       // Create room
-      const { data: room, error: roomError } = await supabase
-        .from("rooms")
-        .insert({
+      const insertPayload = {
+        name: roomName,
+        password: password || null,
+        start_date: startDate,
+        end_date: endDate,
+        daily_start_hour: dailyStartHour,
+        daily_end_hour: dailyEndHour,
+      }
+
+      const insertRoom = async (payload: any) =>
+        supabase.from("rooms").insert(payload).select().single()
+
+      let { data: room, error: roomError } = await insertRoom(insertPayload)
+
+      // 구버전 스키마(일일 가능시간 컬럼 없음) 호환: 해당 컬럼 없이 재시도
+      if (
+        roomError &&
+        typeof roomError.message === "string" &&
+        (roomError.message.includes("daily_end_hour") ||
+          roomError.message.includes("daily_start_hour"))
+      ) {
+        ;({ data: room, error: roomError } = await insertRoom({
           name: roomName,
           password: password || null,
           start_date: startDate,
           end_date: endDate,
-          daily_start_hour: dailyStartHour,
-          daily_end_hour: dailyEndHour,
-        })
-        .select()
-        .single()
+        }))
+      }
 
       if (roomError || !room) throw roomError
 
@@ -119,20 +144,31 @@ export default function CreateRoomPage() {
         .map((s) => ({
           room_id: room.id,
           title: s.title.trim(),
-          required_member_ids: s.memberIndices.map((idx) => createdMembers[idx].id),
+          required_member_ids: s.memberIndices
+            .map((idx) => createdMembers[idx]?.id)
+            .filter(Boolean),
         }))
 
-      const { error: songsError } = await supabase
-        .from("songs")
-        .insert(songRecords)
-
-      if (songsError) throw songsError
+      if (songRecords.length > 0) {
+        const { error: songsError } = await supabase.from("songs").insert(songRecords)
+        if (songsError) throw songsError
+      }
 
       // Redirect to room page
       router.push(`/room/${room.id}`)
     } catch (error) {
       console.error("Error creating room:", error)
-      alert("방 생성 중 오류가 발생했습니다.")
+      const message =
+        typeof error === "object" && error !== null && "message" in error
+          ? String((error as any).message)
+          : "알 수 없는 오류"
+      const hint =
+        message.includes("Load failed") || message.includes("Failed to fetch")
+          ? "\n\n네트워크 요청이 실패했습니다. (Supabase URL/키가 잘못됐거나, .env.local 변경 후 서버 재시작이 필요하거나, 네트워크/차단 이슈일 수 있어요.)"
+          : message.includes("daily_end_hour") || message.includes("daily_start_hour")
+          ? "\n\nSupabase DB의 rooms 테이블에 daily_start_hour / daily_end_hour 컬럼이 없습니다. schema.sql 내용을 Supabase에 반영(ALTER TABLE)한 뒤 다시 시도하세요."
+          : ""
+      alert(`방 생성 중 오류가 발생했습니다.\n\n${message}${hint}`)
     } finally {
       setLoading(false)
     }
