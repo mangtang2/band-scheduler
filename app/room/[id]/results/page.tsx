@@ -28,6 +28,7 @@ export default function ResultsPage() {
   const [minDuration, setMinDuration] = useState(60) // minutes
   const [recommendations, setRecommendations] = useState<SongRecommendation[]>([])
   const [requiredFilters, setRequiredFilters] = useState<Record<string, string[]>>({})
+  const [selectedHeatmapTs, setSelectedHeatmapTs] = useState<number | null>(null)
 
   const loadData = useCallback(async () => {
     if (!roomId) return
@@ -146,6 +147,13 @@ export default function ResultsPage() {
 
   const maxCount = Math.max(...heatmapData.map((d) => d.count), 1)
   const memberNames = new Map(members.map((m) => [m.id, m.name]))
+  const allMemberIds = members.map((m) => m.id)
+  const selectedCell =
+    selectedHeatmapTs != null
+      ? heatmapData.find((c) => c.timestamp === selectedHeatmapTs) ?? null
+      : null
+  const availableIds = new Set(selectedCell?.memberIds ?? [])
+  const unavailableIds = allMemberIds.filter((id) => !availableIds.has(id))
 
   return (
     <div className="min-h-screen bg-background">
@@ -159,13 +167,91 @@ export default function ResultsPage() {
         <div className="mb-12">
           <h2 className="text-2xl font-semibold mb-4">전체 가능 시간 현황</h2>
           <div className="bg-card border rounded-lg p-6">
-            <ResultsHeatmap
-              heatmapData={heatmapData}
-              startDate={new Date(room.start_date)}
-              endDate={new Date(room.end_date)}
-              maxCount={maxCount}
-              memberNames={memberNames}
-            />
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Left sidebar (1/4) */}
+              <div className="md:w-1/4 w-full">
+                <div className="rounded-lg border bg-background p-4">
+                  <div className="font-semibold">참여 현황</div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    히트맵에서 시간대를 클릭하면, 해당 시간 기준으로 분류됩니다.
+                  </p>
+
+                  <div className="mt-4">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      선택한 시간
+                    </div>
+                    <div className="mt-1 text-sm">
+                      {selectedCell
+                        ? format(new Date(selectedCell.timestamp), "M/d (EEE) HH:mm", {
+                            locale: ko,
+                          })
+                        : "시간대를 선택해주세요"}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 space-y-5">
+                    <div>
+                      <div className="text-sm font-semibold text-primary">
+                        참여 가능 ({selectedCell ? selectedCell.memberIds.length : 0})
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {selectedCell && selectedCell.memberIds.length > 0 ? (
+                          selectedCell.memberIds
+                            .map((id) => memberNames.get(id) || "알 수 없음")
+                            .map((name) => (
+                              <div key={name} className="text-sm">
+                                {name}
+                              </div>
+                            ))
+                        ) : (
+                          <div className="text-sm text-muted-foreground">
+                            {selectedCell ? "없음" : "-"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-sm font-semibold text-muted-foreground">
+                        참여 불가능 ({selectedCell ? unavailableIds.length : 0})
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {selectedCell ? (
+                          unavailableIds.length > 0 ? (
+                            unavailableIds
+                              .map((id) => memberNames.get(id) || "알 수 없음")
+                              .map((name) => (
+                                <div key={name} className="text-sm text-muted-foreground">
+                                  {name}
+                                </div>
+                              ))
+                          ) : (
+                            <div className="text-sm text-muted-foreground">없음</div>
+                          )
+                        ) : (
+                          <div className="text-sm text-muted-foreground">-</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right heatmap (3/4) */}
+              <div className="md:w-3/4 w-full">
+                <ResultsHeatmap
+                  heatmapData={heatmapData}
+                  startDate={new Date(room.start_date)}
+                  endDate={new Date(room.end_date)}
+                  maxCount={maxCount}
+                  memberNames={memberNames}
+                  startHour={room.daily_start_hour ?? 9}
+                  endHour={room.daily_end_hour ?? 23}
+                  selectedTimestamp={selectedHeatmapTs}
+                  onSelectTimestamp={(ts) => setSelectedHeatmapTs(ts)}
+                />
+              </div>
+            </div>
           </div>
         </div>
 

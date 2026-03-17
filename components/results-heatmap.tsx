@@ -12,6 +12,10 @@ interface ResultsHeatmapProps {
   endDate: Date
   maxCount: number
   memberNames: Map<string, string>
+  startHour?: number
+  endHour?: number
+  selectedTimestamp?: number | null
+  onSelectTimestamp?: (timestamp: number) => void
 }
 
 export function ResultsHeatmap({
@@ -20,6 +24,10 @@ export function ResultsHeatmap({
   endDate,
   maxCount,
   memberNames,
+  startHour = 9,
+  endHour = 23,
+  selectedTimestamp = null,
+  onSelectTimestamp,
 }: ResultsHeatmapProps) {
   // Group by date and time
   const dateMap = new Map<string, HeatmapCell[]>()
@@ -38,7 +46,7 @@ export function ResultsHeatmap({
 
   // Generate time slots
   const timeSlots: { hour: number; minute: number; label: string }[] = []
-  for (let hour = 9; hour < 23; hour++) {
+  for (let hour = startHour; hour < endHour; hour++) {
     timeSlots.push({ hour, minute: 0, label: `${hour}:00` })
     timeSlots.push({ hour, minute: 30, label: `${hour}:30` })
   }
@@ -125,7 +133,10 @@ export function ResultsHeatmap({
                     className={cn(
                       "h-8 border-b relative group cursor-pointer",
                       getColorIntensity(count),
-                      slot.minute === 0 ? "border-t-2" : ""
+                      slot.minute === 0 ? "border-t-2" : "",
+                      selectedTimestamp === cellData?.timestamp
+                        ? "ring-2 ring-primary ring-inset"
+                        : ""
                     )}
                     title={
                       count > 0
@@ -134,6 +145,10 @@ export function ResultsHeatmap({
                             .join(", ")}`
                         : "아무도 가능하지 않음"
                     }
+                    onClick={() => {
+                      if (!cellData) return
+                      onSelectTimestamp?.(cellData.timestamp)
+                    }}
                   >
                     {count > 0 && (
                       <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white">
