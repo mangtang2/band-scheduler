@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 
 type RoomRow = {
@@ -20,11 +21,12 @@ function formatDateTime(value: string | null) {
 }
 
 export default function AdminPage() {
-  const ADMIN_PASSWORD = "minjun_admin_1234"
+  const ADMIN_PASSWORD = "xhspe"
 
   const [password, setPassword] = useState("")
   const [authed, setAuthed] = useState(false)
   const [reloadNonce, setReloadNonce] = useState(0)
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null)
 
   const [rooms, setRooms] = useState<RoomRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -166,13 +168,14 @@ export default function AdminPage() {
                     <th className="px-4 py-3 font-medium">방 이름</th>
                     <th className="px-4 py-3 font-medium">생성일자</th>
                     <th className="px-4 py-3 font-medium">고유 ID</th>
+                    <th className="px-4 py-3 font-medium text-right">작업</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {rooms.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={3}
+                        colSpan={4}
                         className="px-4 py-8 text-center text-muted-foreground"
                       >
                         방이 없습니다.
@@ -181,12 +184,55 @@ export default function AdminPage() {
                   ) : (
                     rooms.map((r) => (
                       <tr key={r.id} className="hover:bg-muted/20">
-                        <td className="px-4 py-3 font-medium">{r.name}</td>
+                        <td className="px-4 py-3 font-medium">
+                          <Link
+                            className="hover:underline underline-offset-4"
+                            href={`/room/${r.id}/results`}
+                          >
+                            {r.name}
+                          </Link>
+                        </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {formatDateTime(r.created_at)}
                         </td>
                         <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                           {r.id}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-60"
+                            disabled={deletingRoomId === r.id}
+                            onClick={async () => {
+                              const ok = confirm(
+                                `정말로 이 방을 삭제할까요?\n\n- ${r.name}\n- ${r.id}\n\n삭제하면 멤버/곡/가능시간도 함께 삭제됩니다.`
+                              )
+                              if (!ok) return
+
+                              setDeletingRoomId(r.id)
+                              try {
+                                const { error } = await supabase
+                                  .from("rooms")
+                                  .delete()
+                                  .eq("id", r.id)
+                                if (error) throw error
+                                setRooms((prev) => prev.filter((x) => x.id !== r.id))
+                              } catch (e) {
+                                const message =
+                                  typeof e === "object" &&
+                                  e !== null &&
+                                  "message" in e
+                                    ? String((e as any).message)
+                                    : "삭제에 실패했습니다."
+                                alert(
+                                  `방 삭제에 실패했습니다.\n\n${message}\n\n(참고) Supabase RLS에서 rooms 테이블 DELETE 정책이 없으면 삭제가 거부될 수 있습니다.`
+                                )
+                              } finally {
+                                setDeletingRoomId(null)
+                              }
+                            }}
+                          >
+                            {deletingRoomId === r.id ? "삭제 중..." : "삭제"}
+                          </button>
                         </td>
                       </tr>
                     ))
