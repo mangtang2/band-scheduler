@@ -5,15 +5,18 @@ import { Calendar, Users, Music } from "lucide-react"
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 relative">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <div className="container mx-auto px-4 py-16">
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl sm:text-6xl font-bold mb-6 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             구름다리 합주공사
           </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground mb-2 max-w-2xl mx-auto">
             멤버들의 가능 시간을 모아서 최적의 연습 시간을 자동으로 찾아드립니다
+          </p>
+          <p className="text-sm text-muted-foreground/80 mb-8 max-w-2xl mx-auto">
+            제작: 구름다리확장공사 23기 뺀짱 김민규
           </p>
           <Link href="/create-room">
             <Button size="lg" className="text-lg px-8 py-6">
@@ -108,10 +111,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="fixed bottom-3 right-3 text-[11px] text-muted-foreground/80 bg-background/60 backdrop-blur px-2 py-1 rounded border">
-        구름다리확장공사 23기 뺀짱 김민규
       </div>
     </div>
   )
