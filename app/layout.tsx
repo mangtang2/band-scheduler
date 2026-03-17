@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import "../globals.css"
 
 export const metadata: Metadata = {
-  title: "밴드 연습 일정 조율",
+  title: "구름다리 합주공사",
   description: "멤버들의 가능 시간을 모아 최적의 연습 시간을 찾아드립니다",
 }
 
