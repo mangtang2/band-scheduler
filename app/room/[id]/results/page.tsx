@@ -157,17 +157,17 @@ export default function ResultsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">{room.name}</h1>
           <p className="text-muted-foreground">연습 일정 추천 결과</p>
         </div>
 
         {/* Heatmap Section */}
-        <div className="mb-12">
+        <div className="mb-8">
           <h2 className="text-2xl font-semibold mb-4">전체 가능 시간 현황</h2>
-          <div className="bg-card border rounded-lg p-6">
-            <div className="flex flex-col md:flex-row gap-6">
+          <div className="bg-card border rounded-lg p-4">
+            <div className="flex flex-col md:flex-row gap-4">
               {/* Left heatmap (3/4) */}
               <div className="md:w-3/4 w-full">
                 <ResultsHeatmap

@@ -83,7 +83,7 @@ export function ResultsHeatmap({
   }
 
   return (
-    <div className="w-full overflow-x-auto pb-4">
+    <div className="w-full overflow-x-auto pb-2">
       <div className="inline-block min-w-full">
         {/* Header */}
         <div className="flex sticky top-0 bg-background z-10 border-b">
@@ -93,12 +93,12 @@ export function ResultsHeatmap({
             return (
               <div
                 key={dateKey}
-                className="flex-1 min-w-[60px] sm:min-w-[80px] px-2 py-3 text-center border-l"
+                className="flex-1 min-w-[56px] sm:min-w-[72px] px-2 py-2 text-center border-l"
               >
                 <div className="text-xs font-semibold">
                   {format(date, "EEE", { locale: ko })}
                 </div>
-                <div className="text-sm">{format(date, "M/d")}</div>
+                <div className="text-xs">{format(date, "M/d")}</div>
               </div>
             )
           })}
@@ -111,7 +111,7 @@ export function ResultsHeatmap({
             {timeSlots.map((slot, idx) => (
               <div
                 key={idx}
-                className="h-8 flex items-center justify-end pr-2 text-xs text-muted-foreground border-b"
+                className="h-5 flex items-center justify-end pr-2 text-[10px] text-muted-foreground border-b"
               >
                 {slot.minute === 0 ? slot.label : ""}
               </div>
@@ -133,7 +133,7 @@ export function ResultsHeatmap({
                   <div
                     key={timeIdx}
                     className={cn(
-                      "h-8 border-b relative group cursor-pointer",
+                      "h-5 border-b relative group cursor-pointer",
                       getColorIntensity(count),
                       slot.minute === 0 ? "border-t-2" : "",
                       selectedTimestamp === cellData?.timestamp
@@ -160,7 +160,7 @@ export function ResultsHeatmap({
                     }}
                   >
                     {count > 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white">
+                      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white">
                         {count}
                       </div>
                     )}
@@ -184,22 +184,22 @@ export function ResultsHeatmap({
       </div>
 
       {/* Legend */}
-      <div className="mt-6 flex items-center justify-center gap-4 text-sm">
+      <div className="mt-3 flex items-center justify-center gap-3 text-xs">
         <span className="text-muted-foreground">가능 인원:</span>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-6 bg-gray-100 border rounded" />
+          <div className="w-7 h-5 bg-gray-100 border rounded" />
           <span className="text-xs">0명</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-6 bg-primary/40 border rounded" />
+          <div className="w-7 h-5 bg-primary/40 border rounded" />
           <span className="text-xs">적음</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-6 bg-primary/80 border rounded" />
+          <div className="w-7 h-5 bg-primary/80 border rounded" />
           <span className="text-xs">보통</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-6 bg-primary border rounded" />
+          <div className="w-7 h-5 bg-primary border rounded" />
           <span className="text-xs">많음</span>
         </div>
       </div>
