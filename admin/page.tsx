@@ -20,7 +20,7 @@ function formatDateTime(value: string | null) {
 }
 
 export default function AdminPage() {
-  const ADMIN_PASSWORD = "xhspe"
+  const ADMIN_PASSWORD = "minjun_admin_1234"
 
   const [password, setPassword] = useState("")
   const [authed, setAuthed] = useState(false)
