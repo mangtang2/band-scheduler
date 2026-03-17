@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { supabase, Room, Member, Song, Availability } from "@/lib/supabase"
 import { ResultsHeatmap } from "@/components/results-heatmap"
@@ -29,18 +29,8 @@ export default function ResultsPage() {
   const [recommendations, setRecommendations] = useState<SongRecommendation[]>([])
   const [requiredFilters, setRequiredFilters] = useState<Record<string, string[]>>({})
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!roomId) return
-    loadData()
-  }, [roomId])
-
-  useEffect(() => {
-    if (room && members.length > 0 && songs.length > 0) {
-      calculateRecommendations()
-    }
-  }, [minDuration, room, members, songs, availabilities, requiredFilters])
-
-  const loadData = async () => {
     try {
       const { data: roomData, error: roomError } = await supabase
         .from("rooms")
@@ -86,9 +76,9 @@ export default function ResultsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [roomId])
 
-  const calculateRecommendations = () => {
+  const calculateRecommendations = useCallback(() => {
     if (!room) return
 
     const recs = generateRecommendations(
@@ -101,7 +91,17 @@ export default function ResultsPage() {
       requiredFilters
     )
     setRecommendations(recs)
-  }
+  }, [room, songs, availabilities, members, minDuration, requiredFilters])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    if (room && members.length > 0 && songs.length > 0) {
+      calculateRecommendations()
+    }
+  }, [calculateRecommendations, room, members.length, songs.length])
 
   const toggleRequiredMember = (songId: string, memberId: string) => {
     setRequiredFilters((prev) => {

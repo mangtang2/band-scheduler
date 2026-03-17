@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { supabase, Room, Member, Song } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -25,12 +25,9 @@ export default function RoomPage() {
     { start: Date; end: Date }[]
   >([])
 
-  useEffect(() => {
+  const loadRoomData = useCallback(async () => {
     if (!roomId) return
-    loadRoomData()
-  }, [roomId])
-
-  const loadRoomData = async () => {
+    setLoading(true)
     try {
       const { data: roomData, error: roomError } = await supabase
         .from("rooms")
@@ -62,7 +59,11 @@ export default function RoomPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [roomId])
+
+  useEffect(() => {
+    loadRoomData()
+  }, [loadRoomData])
 
   const handleMemberSelect = async (member: Member) => {
     setSelectedMember(member)

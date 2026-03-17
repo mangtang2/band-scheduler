@@ -128,7 +128,7 @@ export function AvailabilityGrid({
     }
   }
 
-  const handlePointerUp = () => {
+  const handlePointerUp = useCallback(() => {
     setIsSelecting(false)
     setAnchorCell(null)
     setDragBaseSelected(null)
@@ -164,7 +164,7 @@ export function AvailabilityGrid({
     }
 
     onSelectionChange(ranges)
-  }
+  }, [onSelectionChange, selectedBlocks])
 
   useEffect(() => {
     const handleGlobalPointerUp = () => {
@@ -180,7 +180,7 @@ export function AvailabilityGrid({
       window.removeEventListener("pointerup", handleGlobalPointerUp)
       window.removeEventListener("touchend", handleGlobalPointerUp)
     }
-  }, [isSelecting, selectedBlocks])
+  }, [isSelecting, handlePointerUp])
 
   return (
     <div className="w-full overflow-x-auto pb-4">
