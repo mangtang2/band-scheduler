@@ -168,24 +168,43 @@ export default function ResultsPage() {
           <h2 className="text-2xl font-semibold mb-4">전체 가능 시간 현황</h2>
           <div className="bg-card border rounded-lg p-6">
             <div className="flex flex-col md:flex-row gap-6">
-              {/* Left sidebar (1/4) */}
+              {/* Left heatmap (3/4) */}
+              <div className="md:w-3/4 w-full">
+                <ResultsHeatmap
+                  heatmapData={heatmapData}
+                  startDate={new Date(room.start_date)}
+                  endDate={new Date(room.end_date)}
+                  maxCount={maxCount}
+                  memberNames={memberNames}
+                  startHour={room.daily_start_hour ?? 9}
+                  endHour={room.daily_end_hour ?? 23}
+                  selectedTimestamp={selectedHeatmapTs}
+                  onSelectTimestamp={(ts) => setSelectedHeatmapTs(ts)} // 모바일(hover 없음) 대비
+                  onHoverTimestamp={(ts) => {
+                    if (ts == null) return
+                    setSelectedHeatmapTs(ts)
+                  }}
+                />
+              </div>
+
+              {/* Right sidebar (1/4) */}
               <div className="md:w-1/4 w-full">
                 <div className="rounded-lg border bg-background p-4">
                   <div className="font-semibold">참여 현황</div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    히트맵에서 시간대를 클릭하면, 해당 시간 기준으로 분류됩니다.
+                    히트맵에 커서를 올리면 해당 시간 기준으로 자동 분류됩니다.
                   </p>
 
                   <div className="mt-4">
                     <div className="text-xs font-medium text-muted-foreground">
-                      선택한 시간
+                      현재 시간
                     </div>
                     <div className="mt-1 text-sm">
                       {selectedCell
                         ? format(new Date(selectedCell.timestamp), "M/d (EEE) HH:mm", {
                             locale: ko,
                           })
-                        : "시간대를 선택해주세요"}
+                        : "히트맵에 커서를 올려주세요"}
                     </div>
                   </div>
 
@@ -235,21 +254,6 @@ export default function ResultsPage() {
                     </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Right heatmap (3/4) */}
-              <div className="md:w-3/4 w-full">
-                <ResultsHeatmap
-                  heatmapData={heatmapData}
-                  startDate={new Date(room.start_date)}
-                  endDate={new Date(room.end_date)}
-                  maxCount={maxCount}
-                  memberNames={memberNames}
-                  startHour={room.daily_start_hour ?? 9}
-                  endHour={room.daily_end_hour ?? 23}
-                  selectedTimestamp={selectedHeatmapTs}
-                  onSelectTimestamp={(ts) => setSelectedHeatmapTs(ts)}
-                />
               </div>
             </div>
           </div>

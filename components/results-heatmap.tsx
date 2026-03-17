@@ -16,6 +16,7 @@ interface ResultsHeatmapProps {
   endHour?: number
   selectedTimestamp?: number | null
   onSelectTimestamp?: (timestamp: number) => void
+  onHoverTimestamp?: (timestamp: number | null) => void
 }
 
 export function ResultsHeatmap({
@@ -28,6 +29,7 @@ export function ResultsHeatmap({
   endHour = 23,
   selectedTimestamp = null,
   onSelectTimestamp,
+  onHoverTimestamp,
 }: ResultsHeatmapProps) {
   // Group by date and time
   const dateMap = new Map<string, HeatmapCell[]>()
@@ -148,6 +150,13 @@ export function ResultsHeatmap({
                     onClick={() => {
                       if (!cellData) return
                       onSelectTimestamp?.(cellData.timestamp)
+                    }}
+                    onMouseEnter={() => {
+                      if (!cellData) return
+                      onHoverTimestamp?.(cellData.timestamp)
+                    }}
+                    onMouseLeave={() => {
+                      onHoverTimestamp?.(null)
                     }}
                   >
                     {count > 0 && (
