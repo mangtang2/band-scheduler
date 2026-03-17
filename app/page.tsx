@@ -16,7 +16,7 @@ export default function Home() {
             멤버들의 가능 시간을 모아서 최적의 연습 시간을 자동으로 찾아드립니다
           </p>
           <p className="text-sm text-muted-foreground/80 mb-8 max-w-2xl mx-auto">
-            제작: 구름다리확장공사 23기 뺀짱 김민규
+            제작: 김민규
           </p>
           <Link href="/create-room">
             <Button size="lg" className="text-lg px-8 py-6">
