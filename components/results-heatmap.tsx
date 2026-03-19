@@ -160,7 +160,7 @@ export function ResultsHeatmap({
                     }}
                   >
                     {count > 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white">
+                      <div className="absolute inset-0 flex items-center justify-center text-[11px] sm:text-[12px] font-semibold text-white">
                         {count}
                       </div>
                     )}
