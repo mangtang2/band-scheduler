@@ -1,4 +1,4 @@
-'use client'
+"use client"
 
 import React, { useState, useRef, useCallback, useEffect } from "react"
 import { format } from "date-fns"
@@ -33,15 +33,11 @@ export function AvailabilityGrid({
   const [isSelecting, setIsSelecting] = useState(false)
   const [selectionMode, setSelectionMode] = useState<"add" | "remove">("add")
   const gridRef = useRef<HTMLDivElement>(null)
-  const [anchorCell, setAnchorCell] = useState<{
-    dayIdx: number
-    timeIdx: number
-  } | null>(null)
-  const [dragBaseSelected, setDragBaseSelected] = useState<Set<number> | null>(
-    null
-  )
+  
+  const [anchorCell, setAnchorCell] = useState<{ dayIdx: number; timeIdx: number } | null>(null)
+  const [dragBaseSelected, setDragBaseSelected] = useState<Set<number> | null>(null)
 
-  // Initialize from initial selections
+  // 초기 선택값 세팅
   useEffect(() => {
     const blocks = new Set<number>()
     initialSelections.forEach(({ start, end }) => {
@@ -54,7 +50,7 @@ export function AvailabilityGrid({
     setSelectedBlocks(blocks)
   }, [initialSelections])
 
-  // Generate date range
+  // 날짜 배열 생성
   const dates: Date[] = []
   const current = new Date(startDate)
   while (current <= endDate) {
@@ -62,14 +58,14 @@ export function AvailabilityGrid({
     current.setDate(current.getDate() + 1)
   }
 
-  // Generate time slots (30-minute intervals between configured hours)
+  // 시간 슬롯 생성
   const timeSlots: { hour: number; minute: number; label: string }[] = []
   for (let hour = startHour; hour < endHour; hour++) {
     timeSlots.push({ hour, minute: 0, label: `${hour}:00` })
     timeSlots.push({ hour, minute: 30, label: `${hour}:30` })
   }
 
-  // Create all time blocks
+  // 전체 시간 블록 데이터 생성
   const allBlocks: TimeBlock[][] = dates.map((date) =>
     timeSlots.map(({ hour, minute }) => {
       const blockDate = new Date(date)
@@ -83,23 +79,26 @@ export function AvailabilityGrid({
     })
   )
 
+  // 💡 [수정됨] React 상태 지연 문제 해결을 위해 최신 값들을 매개변수로 직접 받도록 개선
   const applyRectangleSelection = useCallback(
-    (dayIdx: number, timeIdx: number, mode?: "add" | "remove") => {
-      if (!anchorCell) return
-      const actualMode = mode || selectionMode
+    (
+      targetDayIdx: number,
+      targetTimeIdx: number,
+      currentAnchor: { dayIdx: number; timeIdx: number },
+      baseBlocks: Set<number>,
+      currentMode: "add" | "remove"
+    ) => {
+      const next = new Set(baseBlocks)
 
-      const base = dragBaseSelected ?? selectedBlocks
-      const next = new Set(base)
-
-      const dayStart = Math.min(anchorCell.dayIdx, dayIdx)
-      const dayEnd = Math.max(anchorCell.dayIdx, dayIdx)
-      const timeStart = Math.min(anchorCell.timeIdx, timeIdx)
-      const timeEnd = Math.max(anchorCell.timeIdx, timeIdx)
+      const dayStart = Math.min(currentAnchor.dayIdx, targetDayIdx)
+      const dayEnd = Math.max(currentAnchor.dayIdx, targetDayIdx)
+      const timeStart = Math.min(currentAnchor.timeIdx, targetTimeIdx)
+      const timeEnd = Math.max(currentAnchor.timeIdx, targetTimeIdx)
 
       for (let d = dayStart; d <= dayEnd; d++) {
         for (let t = timeStart; t <= timeEnd; t++) {
           const ts = allBlocks[d][t].timestamp
-          if (actualMode === "add") {
+          if (currentMode === "add") {
             next.add(ts)
           } else {
             next.delete(ts)
@@ -109,31 +108,60 @@ export function AvailabilityGrid({
 
       setSelectedBlocks(next)
     },
-    [anchorCell, selectionMode, dragBaseSelected, selectedBlocks, allBlocks]
+    [allBlocks]
   )
 
   const handlePointerDown = (dayIdx: number, timeIdx: number) => {
     const timestamp = allBlocks[dayIdx][timeIdx].timestamp
     const mode = selectedBlocks.has(timestamp) ? "remove" : "add"
+    
+    const newAnchor = { dayIdx, timeIdx }
+    const base = new Set(selectedBlocks)
+
     setSelectionMode(mode)
     setIsSelecting(true)
-    setAnchorCell({ dayIdx, timeIdx })
-    setDragBaseSelected(new Set(selectedBlocks))
-    applyRectangleSelection(dayIdx, timeIdx, mode)
+    setAnchorCell(newAnchor)
+    setDragBaseSelected(base)
+    
+    // 상태 업데이트를 기다리지 않고 최신 값을 바로 넘겨 즉각 반응하도록 처리
+    applyRectangleSelection(dayIdx, timeIdx, newAnchor, base, mode)
   }
 
   const handlePointerEnter = (dayIdx: number, timeIdx: number) => {
-    if (isSelecting) {
-      applyRectangleSelection(dayIdx, timeIdx)
+    if (isSelecting && anchorCell && dragBaseSelected) {
+      applyRectangleSelection(dayIdx, timeIdx, anchorCell, dragBaseSelected, selectionMode)
     }
   }
 
+  // 📱 [핵심 추가] 모바일 환경 터치 이동 이벤트 핸들러
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isSelecting || !anchorCell || !dragBaseSelected) return
+
+      const touch = e.touches[0]
+      // 손가락 위치(물리적 픽셀)의 DOM 엘리먼트 추적
+      const element = document.elementFromPoint(touch.clientX, touch.clientY)
+
+      if (element) {
+        const dayIdxStr = element.getAttribute("data-dayidx")
+        const timeIdxStr = element.getAttribute("data-timeidx")
+
+        if (dayIdxStr !== null && timeIdxStr !== null) {
+          const dayIdx = parseInt(dayIdxStr, 10)
+          const timeIdx = parseInt(timeIdxStr, 10)
+          applyRectangleSelection(dayIdx, timeIdx, anchorCell, dragBaseSelected, selectionMode)
+        }
+      }
+    },
+    [isSelecting, anchorCell, dragBaseSelected, selectionMode, applyRectangleSelection]
+  )
+
   const handlePointerUp = useCallback(() => {
+    if (!isSelecting) return
     setIsSelecting(false)
     setAnchorCell(null)
     setDragBaseSelected(null)
 
-    // Convert selected blocks to time ranges
     const sorted = Array.from(selectedBlocks).sort((a, b) => a - b)
     const ranges: { start: Date; end: Date }[] = []
 
@@ -143,10 +171,8 @@ export function AvailabilityGrid({
 
       for (let i = 1; i < sorted.length; i++) {
         if (sorted[i] === rangeEnd) {
-          // Consecutive block
           rangeEnd = sorted[i] + 30 * 60 * 1000
         } else {
-          // Gap found, save current range
           ranges.push({
             start: new Date(rangeStart),
             end: new Date(rangeEnd),
@@ -156,7 +182,6 @@ export function AvailabilityGrid({
         }
       }
 
-      // Save last range
       ranges.push({
         start: new Date(rangeStart),
         end: new Date(rangeEnd),
@@ -164,7 +189,7 @@ export function AvailabilityGrid({
     }
 
     onSelectionChange(ranges)
-  }, [onSelectionChange, selectedBlocks])
+  }, [isSelecting, selectedBlocks, onSelectionChange])
 
   useEffect(() => {
     const handleGlobalPointerUp = () => {
@@ -186,8 +211,9 @@ export function AvailabilityGrid({
     <div className="w-full overflow-x-auto pb-4">
       <div
         ref={gridRef}
-        className="inline-block min-w-full"
-        style={{ touchAction: "none" }}
+        // 🚀 touch-none 클래스로 모바일 스와이프/스크롤 완벽 차단, onTouchMove 연결
+        className="inline-block min-w-full touch-none select-none"
+        onTouchMove={handleTouchMove}
       >
         {/* Header - Dates */}
         <div className="flex sticky top-0 bg-background z-10 border-b">
@@ -195,7 +221,7 @@ export function AvailabilityGrid({
           {dates.map((date, idx) => (
             <div
               key={idx}
-              className="flex-1 min-w-[60px] sm:min-w-[80px] px-2 py-3 text-center border-l"
+              className="flex-1 min-w-[60px] sm:min-w-[80px] px-2 py-3 text-center border-l bg-background"
             >
               <div className="text-xs font-semibold">
                 {format(date, "EEE", { locale: ko })}
@@ -212,7 +238,7 @@ export function AvailabilityGrid({
             {timeSlots.map((slot, idx) => (
               <div
                 key={idx}
-                className="h-8 flex items-center justify-end pr-2 text-xs text-muted-foreground border-b"
+                className="h-8 flex items-center justify-end pr-2 text-xs text-muted-foreground border-b bg-background"
               >
                 {slot.minute === 0 ? slot.label : ""}
               </div>
@@ -230,12 +256,15 @@ export function AvailabilityGrid({
                 return (
                   <div
                     key={timeIdx}
+                    // 🎯 data 속성을 부여하여 모바일 onTouchMove 시 요소 좌표 추적에 활용
+                    data-dayidx={dayIdx}
+                    data-timeidx={timeIdx}
                     className={cn(
-                      "h-8 border-b cursor-pointer transition-colors select-none",
+                      "h-8 border-b cursor-pointer transition-colors select-none touch-none",
                       isSelected
                         ? "bg-primary/80 hover:bg-primary"
                         : "bg-background hover:bg-primary/20",
-                      block.minute === 0 ? "border-t-2" : ""
+                      block.minute === 0 ? "border-t-2 border-t-gray-100" : ""
                     )}
                     onPointerDown={(e) => {
                       e.preventDefault()
@@ -243,7 +272,8 @@ export function AvailabilityGrid({
                     }}
                     onPointerEnter={() => handlePointerEnter(dayIdx, timeIdx)}
                     onTouchStart={(e) => {
-                      e.preventDefault()
+                      // 기본 이벤트를 방지하여 불필요한 스크롤 및 더블클릭 방지
+                      e.preventDefault() 
                       handlePointerDown(dayIdx, timeIdx)
                     }}
                   />
@@ -261,4 +291,3 @@ export function AvailabilityGrid({
     </div>
   )
 }
-
