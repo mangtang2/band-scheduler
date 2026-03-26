@@ -33,11 +33,33 @@ export function AvailabilityGrid({
   const [isSelecting, setIsSelecting] = useState(false)
   const [selectionMode, setSelectionMode] = useState<"add" | "remove">("add")
   const gridRef = useRef<HTMLDivElement>(null)
-  
+
   const [anchorCell, setAnchorCell] = useState<{ dayIdx: number; timeIdx: number } | null>(null)
   const [dragBaseSelected, setDragBaseSelected] = useState<Set<number> | null>(null)
 
-  // 초기 선택값 세팅
+  // 🚀 핵심 1: 이벤트 리스너 유실 방지를 위한 최신 상태 저장소 (Ref)
+  // 렌더링 지연 없이 가장 최신의 상태를 추적하여 손가락을 떼는 순간을 절대 놓치지 않습니다.
+  const stateRef = useRef({
+    isSelecting,
+    selectedBlocks,
+    anchorCell,
+    dragBaseSelected,
+    selectionMode,
+  })
+
+  // 성능 최적화: 연속 드래그 시 같은 칸에서 불필요한 계산을 막기 위한 Ref
+  const lastHoveredRef = useRef<{ dayIdx: number; timeIdx: number } | null>(null)
+
+  useEffect(() => {
+    stateRef.current = {
+      isSelecting,
+      selectedBlocks,
+      anchorCell,
+      dragBaseSelected,
+      selectionMode,
+    }
+  }, [isSelecting, selectedBlocks, anchorCell, dragBaseSelected, selectionMode])
+
   useEffect(() => {
     const blocks = new Set<number>()
     initialSelections.forEach(({ start, end }) => {
@@ -50,7 +72,6 @@ export function AvailabilityGrid({
     setSelectedBlocks(blocks)
   }, [initialSelections])
 
-  // 날짜 배열 생성
   const dates: Date[] = []
   const current = new Date(startDate)
   while (current <= endDate) {
@@ -58,54 +79,41 @@ export function AvailabilityGrid({
     current.setDate(current.getDate() + 1)
   }
 
-  // 시간 슬롯 생성
   const timeSlots: { hour: number; minute: number; label: string }[] = []
   for (let hour = startHour; hour < endHour; hour++) {
     timeSlots.push({ hour, minute: 0, label: `${hour}:00` })
     timeSlots.push({ hour, minute: 30, label: `${hour}:30` })
   }
 
-  // 전체 시간 블록 데이터 생성
   const allBlocks: TimeBlock[][] = dates.map((date) =>
     timeSlots.map(({ hour, minute }) => {
       const blockDate = new Date(date)
       blockDate.setHours(hour, minute, 0, 0)
-      return {
-        date,
-        hour,
-        minute,
-        timestamp: blockDate.getTime(),
-      }
+      return { date, hour, minute, timestamp: blockDate.getTime() }
     })
   )
 
-  // 💡 [수정됨] React 상태 지연 문제 해결을 위해 최신 값들을 매개변수로 직접 받도록 개선
   const applyRectangleSelection = useCallback(
-    (
-      targetDayIdx: number,
-      targetTimeIdx: number,
-      currentAnchor: { dayIdx: number; timeIdx: number },
-      baseBlocks: Set<number>,
-      currentMode: "add" | "remove"
-    ) => {
-      const next = new Set(baseBlocks)
+    (targetDayIdx: number, targetTimeIdx: number) => {
+      const state = stateRef.current
+      if (!state.anchorCell || !state.dragBaseSelected) return
 
-      const dayStart = Math.min(currentAnchor.dayIdx, targetDayIdx)
-      const dayEnd = Math.max(currentAnchor.dayIdx, targetDayIdx)
-      const timeStart = Math.min(currentAnchor.timeIdx, targetTimeIdx)
-      const timeEnd = Math.max(currentAnchor.timeIdx, targetTimeIdx)
+      const next = new Set(state.dragBaseSelected)
+      const dayStart = Math.min(state.anchorCell.dayIdx, targetDayIdx)
+      const dayEnd = Math.max(state.anchorCell.dayIdx, targetDayIdx)
+      const timeStart = Math.min(state.anchorCell.timeIdx, targetTimeIdx)
+      const timeEnd = Math.max(state.anchorCell.timeIdx, targetTimeIdx)
 
       for (let d = dayStart; d <= dayEnd; d++) {
         for (let t = timeStart; t <= timeEnd; t++) {
           const ts = allBlocks[d][t].timestamp
-          if (currentMode === "add") {
+          if (state.selectionMode === "add") {
             next.add(ts)
           } else {
             next.delete(ts)
           }
         }
       }
-
       setSelectedBlocks(next)
     },
     [allBlocks]
@@ -114,34 +122,33 @@ export function AvailabilityGrid({
   const handlePointerDown = (dayIdx: number, timeIdx: number) => {
     const timestamp = allBlocks[dayIdx][timeIdx].timestamp
     const mode = selectedBlocks.has(timestamp) ? "remove" : "add"
-    
+    const newBase = new Set(selectedBlocks)
     const newAnchor = { dayIdx, timeIdx }
-    const base = new Set(selectedBlocks)
 
-    setSelectionMode(mode)
     setIsSelecting(true)
+    setSelectionMode(mode)
     setAnchorCell(newAnchor)
-    setDragBaseSelected(base)
-    
-    // 상태 업데이트를 기다리지 않고 최신 값을 바로 넘겨 즉각 반응하도록 처리
-    applyRectangleSelection(dayIdx, timeIdx, newAnchor, base, mode)
-  }
+    setDragBaseSelected(newBase)
 
-  const handlePointerEnter = (dayIdx: number, timeIdx: number) => {
-    if (isSelecting && anchorCell && dragBaseSelected) {
-      applyRectangleSelection(dayIdx, timeIdx, anchorCell, dragBaseSelected, selectionMode)
+    // React 상태 변경을 기다리지 않고 Ref 즉시 업데이트
+    stateRef.current = {
+      ...stateRef.current,
+      isSelecting: true,
+      selectionMode: mode,
+      anchorCell: newAnchor,
+      dragBaseSelected: newBase,
     }
+
+    lastHoveredRef.current = { dayIdx, timeIdx }
+    applyRectangleSelection(dayIdx, timeIdx)
   }
 
-  // 📱 [핵심 추가] 모바일 환경 터치 이동 이벤트 핸들러
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (!isSelecting || !anchorCell || !dragBaseSelected) return
+  // 🚀 핵심 2: 마우스 및 터치 좌표 추적 공통 로직
+  const handleMove = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!stateRef.current.isSelecting) return
 
-      const touch = e.touches[0]
-      // 손가락 위치(물리적 픽셀)의 DOM 엘리먼트 추적
-      const element = document.elementFromPoint(touch.clientX, touch.clientY)
-
+      const element = document.elementFromPoint(clientX, clientY)
       if (element) {
         const dayIdxStr = element.getAttribute("data-dayidx")
         const timeIdxStr = element.getAttribute("data-timeidx")
@@ -149,75 +156,87 @@ export function AvailabilityGrid({
         if (dayIdxStr !== null && timeIdxStr !== null) {
           const dayIdx = parseInt(dayIdxStr, 10)
           const timeIdx = parseInt(timeIdxStr, 10)
-          applyRectangleSelection(dayIdx, timeIdx, anchorCell, dragBaseSelected, selectionMode)
+
+          const last = lastHoveredRef.current
+          // 다른 칸으로 넘어갈 때만 업데이트 수행 (엄청난 성능 최적화)
+          if (!last || last.dayIdx !== dayIdx || last.timeIdx !== timeIdx) {
+            lastHoveredRef.current = { dayIdx, timeIdx }
+            applyRectangleSelection(dayIdx, timeIdx)
+          }
         }
       }
     },
-    [isSelecting, anchorCell, dragBaseSelected, selectionMode, applyRectangleSelection]
+    [applyRectangleSelection]
   )
 
-  const handlePointerUp = useCallback(() => {
-    if (!isSelecting) return
-    setIsSelecting(false)
-    setAnchorCell(null)
-    setDragBaseSelected(null)
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType === "touch") return // 모바일 터치는 onTouchMove에 온전히 위임
+    handleMove(e.clientX, e.clientY)
+  }
 
-    const sorted = Array.from(selectedBlocks).sort((a, b) => a - b)
-    const ranges: { start: Date; end: Date }[] = []
+  const handleTouchMove = (e: React.TouchEvent) => {
+    handleMove(e.touches[0].clientX, e.touches[0].clientY)
+  }
 
-    if (sorted.length > 0) {
-      let rangeStart = sorted[0]
-      let rangeEnd = rangeStart + 30 * 60 * 1000
-
-      for (let i = 1; i < sorted.length; i++) {
-        if (sorted[i] === rangeEnd) {
-          rangeEnd = sorted[i] + 30 * 60 * 1000
-        } else {
-          ranges.push({
-            start: new Date(rangeStart),
-            end: new Date(rangeEnd),
-          })
-          rangeStart = sorted[i]
-          rangeEnd = rangeStart + 30 * 60 * 1000
-        }
-      }
-
-      ranges.push({
-        start: new Date(rangeStart),
-        end: new Date(rangeEnd),
-      })
-    }
-
-    onSelectionChange(ranges)
-  }, [isSelecting, selectedBlocks, onSelectionChange])
-
+  // 🚀 핵심 3: 단 한 번만 등록되어 절대 풀리지 않는 안정적인 종료 이벤트
   useEffect(() => {
-    const handleGlobalPointerUp = () => {
-      if (isSelecting) {
-        handlePointerUp()
+    const handleGlobalEnd = () => {
+      const state = stateRef.current
+      if (!state.isSelecting) return
+
+      setIsSelecting(false)
+      setAnchorCell(null)
+      setDragBaseSelected(null)
+      lastHoveredRef.current = null
+
+      // 시간 계산 및 데이터 상위 컴포넌트로 전송
+      const sorted = Array.from(state.selectedBlocks).sort((a, b) => a - b)
+      const ranges: { start: Date; end: Date }[] = []
+
+      if (sorted.length > 0) {
+        let rangeStart = sorted[0]
+        let rangeEnd = rangeStart + 30 * 60 * 1000
+
+        for (let i = 1; i < sorted.length; i++) {
+          if (sorted[i] === rangeEnd) {
+            rangeEnd = sorted[i] + 30 * 60 * 1000
+          } else {
+            ranges.push({
+              start: new Date(rangeStart),
+              end: new Date(rangeEnd),
+            })
+            rangeStart = sorted[i]
+            rangeEnd = rangeStart + 30 * 60 * 1000
+          }
+        }
+        ranges.push({ start: new Date(rangeStart), end: new Date(rangeEnd) })
       }
+
+      onSelectionChange(ranges)
     }
 
-    window.addEventListener("pointerup", handleGlobalPointerUp)
-    window.addEventListener("touchend", handleGlobalPointerUp)
+    window.addEventListener("pointerup", handleGlobalEnd)
+    window.addEventListener("pointercancel", handleGlobalEnd)
+    window.addEventListener("touchend", handleGlobalEnd)
 
     return () => {
-      window.removeEventListener("pointerup", handleGlobalPointerUp)
-      window.removeEventListener("touchend", handleGlobalPointerUp)
+      window.removeEventListener("pointerup", handleGlobalEnd)
+      window.removeEventListener("pointercancel", handleGlobalEnd)
+      window.removeEventListener("touchend", handleGlobalEnd)
     }
-  }, [isSelecting, handlePointerUp])
+  }, [onSelectionChange])
 
   return (
     <div className="w-full overflow-x-auto pb-4">
       <div
         ref={gridRef}
-        // 🚀 touch-none 클래스로 모바일 스와이프/스크롤 완벽 차단, onTouchMove 연결
+        // touch-none으로 스크롤 방지, 데스크톱/모바일 이동 이벤트 명확히 분리 연결
         className="inline-block min-w-full touch-none select-none"
+        onPointerMove={handlePointerMove}
         onTouchMove={handleTouchMove}
       >
-        {/* Header - Dates */}
         <div className="flex sticky top-0 bg-background z-10 border-b">
-          <div className="w-16 flex-shrink-0" /> {/* Time column spacer */}
+          <div className="w-16 flex-shrink-0" />
           {dates.map((date, idx) => (
             <div
               key={idx}
@@ -231,9 +250,7 @@ export function AvailabilityGrid({
           ))}
         </div>
 
-        {/* Grid */}
         <div className="flex">
-          {/* Time labels */}
           <div className="w-16 flex-shrink-0">
             {timeSlots.map((slot, idx) => (
               <div
@@ -245,7 +262,6 @@ export function AvailabilityGrid({
             ))}
           </div>
 
-          {/* Time blocks */}
           {allBlocks.map((dayBlocks, dayIdx) => (
             <div
               key={dayIdx}
@@ -256,26 +272,17 @@ export function AvailabilityGrid({
                 return (
                   <div
                     key={timeIdx}
-                    // 🎯 data 속성을 부여하여 모바일 onTouchMove 시 요소 좌표 추적에 활용
                     data-dayidx={dayIdx}
                     data-timeidx={timeIdx}
                     className={cn(
-                      "h-8 border-b cursor-pointer transition-colors select-none touch-none",
+                      "h-8 border-b cursor-pointer transition-colors select-none",
                       isSelected
                         ? "bg-primary/80 hover:bg-primary"
                         : "bg-background hover:bg-primary/20",
                       block.minute === 0 ? "border-t-2 border-t-gray-100" : ""
                     )}
-                    onPointerDown={(e) => {
-                      e.preventDefault()
-                      handlePointerDown(dayIdx, timeIdx)
-                    }}
-                    onPointerEnter={() => handlePointerEnter(dayIdx, timeIdx)}
-                    onTouchStart={(e) => {
-                      // 기본 이벤트를 방지하여 불필요한 스크롤 및 더블클릭 방지
-                      e.preventDefault() 
-                      handlePointerDown(dayIdx, timeIdx)
-                    }}
+                    // 이벤트 꼬임을 막기 위해 onPointerDown 단일 이벤트로 통일
+                    onPointerDown={() => handlePointerDown(dayIdx, timeIdx)}
                   />
                 )
               })}
@@ -284,7 +291,6 @@ export function AvailabilityGrid({
         </div>
       </div>
 
-      {/* Instructions */}
       <div className="mt-4 text-sm text-muted-foreground text-center">
         💡 드래그하여 가능한 시간대를 선택하세요
       </div>
