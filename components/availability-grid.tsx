@@ -227,11 +227,11 @@ export function AvailabilityGrid({
   }, [onSelectionChange])
 
   return (
-    <div className="w-full overflow-x-auto pb-4">
+    <div className="w-full overflow-x-auto pb-4 px-4 sm:px-0">
       <div
         ref={gridRef}
-        // touch-none으로 스크롤 방지, 데스크톱/모바일 이동 이벤트 명확히 분리 연결
-        className="inline-block min-w-full touch-none select-none"
+        // 메인 컨테이너에서 touch-none 제거하여 스크롤 허용
+        className="inline-block min-w-full select-none"
         onPointerMove={handlePointerMove}
         onTouchMove={handleTouchMove}
       >
@@ -262,32 +262,35 @@ export function AvailabilityGrid({
             ))}
           </div>
 
-          {allBlocks.map((dayBlocks, dayIdx) => (
-            <div
-              key={dayIdx}
-              className="flex-1 min-w-[60px] sm:min-w-[80px] border-l"
-            >
-              {dayBlocks.map((block, timeIdx) => {
-                const isSelected = selectedBlocks.has(block.timestamp)
-                return (
-                  <div
-                    key={timeIdx}
-                    data-dayidx={dayIdx}
-                    data-timeidx={timeIdx}
-                    className={cn(
-                      "h-8 border-b cursor-pointer transition-colors select-none",
-                      isSelected
-                        ? "bg-primary/80 hover:bg-primary"
-                        : "bg-background hover:bg-primary/20",
-                      block.minute === 0 ? "border-t-2 border-t-gray-100" : ""
-                    )}
-                    // 이벤트 꼬임을 막기 위해 onPointerDown 단일 이벤트로 통일
-                    onPointerDown={() => handlePointerDown(dayIdx, timeIdx)}
-                  />
-                )
-              })}
-            </div>
-          ))}
+          {/* 실제 선택 영역에만 touch-none 적용 */}
+          <div className="flex flex-1 touch-none">
+            {allBlocks.map((dayBlocks, dayIdx) => (
+              <div
+                key={dayIdx}
+                className="flex-1 min-w-[60px] sm:min-w-[80px] border-l"
+              >
+                {dayBlocks.map((block, timeIdx) => {
+                  const isSelected = selectedBlocks.has(block.timestamp)
+                  return (
+                    <div
+                      key={timeIdx}
+                      data-dayidx={dayIdx}
+                      data-timeidx={timeIdx}
+                      className={cn(
+                        "h-8 border-b cursor-pointer transition-colors select-none",
+                        isSelected
+                          ? "bg-primary/80 hover:bg-primary"
+                          : "bg-background hover:bg-primary/20",
+                        block.minute === 0 ? "border-t-2 border-t-gray-100" : ""
+                      )}
+                      // 이벤트 꼬임을 막기 위해 onPointerDown 단일 이벤트로 통일
+                      onPointerDown={() => handlePointerDown(dayIdx, timeIdx)}
+                    />
+                  )
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

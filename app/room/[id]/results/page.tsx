@@ -266,7 +266,7 @@ export default function ResultsPage() {
                     </div>
 
                     <div>
-                      <div className="text-sm font-semibold text-orange-500">
+                      <div className="text-sm font-semibold text-muted-foreground">
                         표시하지 않은 인원 ({selectedCell ? notRespondedIds.length : 0})
                       </div>
                       <div className="mt-2 space-y-1">
@@ -275,7 +275,7 @@ export default function ResultsPage() {
                             notRespondedIds
                               .map((id) => memberNames.get(id) || "알 수 없음")
                               .map((name) => (
-                                <div key={name} className="text-sm text-orange-500/70">
+                                <div key={name} className="text-sm text-muted-foreground">
                                   {name}
                                 </div>
                               ))
