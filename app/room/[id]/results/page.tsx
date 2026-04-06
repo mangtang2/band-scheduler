@@ -1,5 +1,6 @@
 'use client'
 
+import KakaoAdFit from '@/components/KakaoAdFit';
 import { useCallback, useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { supabase, Room, Member, Song, Availability } from "@/lib/supabase"
@@ -66,7 +67,6 @@ export default function ResultsPage() {
       if (availError || !availData) throw availError
       setAvailabilities(availData)
 
-      // 곡별 기본 필터(필요 멤버 전체 체크)를 설정
       const initialFilters: Record<string, string[]> = {}
       songsData.forEach((song) => {
         initialFilters[song.id] = song.required_member_ids
@@ -179,7 +179,7 @@ export default function ResultsPage() {
                   startHour={room.daily_start_hour ?? 9}
                   endHour={room.daily_end_hour ?? 23}
                   selectedTimestamp={selectedHeatmapTs}
-                  onSelectTimestamp={(ts) => setSelectedHeatmapTs(ts)} // 모바일(hover 없음) 대비
+                  onSelectTimestamp={(ts) => setSelectedHeatmapTs(ts)}
                   onHoverTimestamp={(ts) => {
                     if (ts == null) return
                     setSelectedHeatmapTs(ts)
@@ -187,9 +187,10 @@ export default function ResultsPage() {
                 />
               </div>
 
-              {/* Right sidebar (1/4) */}
-              <div className="md:w-1/4 w-full">
-                <div className="rounded-lg border bg-background p-4">
+              {/* Right sidebar (1/4) - 명단 및 광고 영역 */}
+              <div className="md:w-1/4 w-full flex flex-col gap-4">
+                {/* 기존: 참여 현황 박스 */}
+                <div className="rounded-lg border bg-background p-4 flex-1">
                   <div className="font-semibold">참여 현황</div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     히트맵에 커서를 올리면 해당 시간 기준으로 자동 분류됩니다.
@@ -253,6 +254,12 @@ export default function ResultsPage() {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* 🔴 신규: 광고 박스 (명단 바로 아래에 착 붙습니다!) */}
+                <div className="rounded-lg border bg-background p-4 flex flex-col items-center justify-center">
+                  <span className="text-xs text-muted-foreground mb-2">스폰서 광고</span>
+                  <KakaoAdFit />
                 </div>
               </div>
             </div>
@@ -427,4 +434,3 @@ export default function ResultsPage() {
     </div>
   )
 }
-
