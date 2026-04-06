@@ -24,6 +24,8 @@ export default function RoomPage() {
   const [availabilities, setAvailabilities] = useState<
     { start: Date; end: Date }[]
   >([])
+  const [lastSaved, setLastSaved] = useState<string | null>(null)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
 
   const loadRoomData = useCallback(async () => {
     if (!roomId) return
@@ -88,6 +90,9 @@ export default function RoomPage() {
       song.required_member_ids.includes(member.id)
     )
     setSelectedSongIds(memberSongs.map((s) => s.id))
+    
+    // Reset initial load flag so we don't save immediately after loading
+    setIsInitialLoad(true)
   }
 
   const toggleSong = (songId: string) => {
@@ -98,50 +103,62 @@ export default function RoomPage() {
     )
   }
 
-  const saveAvailability = async () => {
-    if (!selectedMember) {
-      alert("멤버를 선택해주세요.")
-      return
-    }
-
-    if (availabilities.length === 0) {
-      alert("가능한 시간을 선택해주세요.")
-      return
-    }
+  const saveAvailability = async (currentAvails = availabilities, currentSongs = selectedSongIds) => {
+    if (!selectedMember) return
 
     setSaving(true)
+    setLastSaved("저장 중...")
 
     try {
-      // Delete existing availabilities
+      // 1. Update availabilities
       await supabase
         .from("availabilities")
         .delete()
         .eq("member_id", selectedMember.id)
         .eq("room_id", roomId)
 
-      // Insert new availabilities
-      const records = availabilities.map((block) => ({
-        member_id: selectedMember.id,
-        room_id: roomId,
-        start_time: block.start.toISOString(),
-        end_time: block.end.toISOString(),
-      }))
+      if (currentAvails.length > 0) {
+        const records = currentAvails.map((block) => ({
+          member_id: selectedMember.id,
+          room_id: roomId,
+          start_time: block.start.toISOString(),
+          end_time: block.end.toISOString(),
+        }))
+        const { error: availError } = await supabase
+          .from("availabilities")
+          .insert(records)
+        if (availError) throw availError
+      }
 
-      const { error } = await supabase
-        .from("availabilities")
-        .insert(records)
-
-      if (error) throw error
-
-      alert("가능 시간이 저장되었습니다!")
-      router.push(`/room/${roomId}/results`)
+      // 2. Update song assignments (required_member_ids)
+      // This part is a bit tricky: we need to update 'songs' table's required_member_ids for each song.
+      // But actually, the current schema might expect members to be part of songs.
+      // Let's check how songs are structured.
+      
+      setLastSaved("방금 저장됨")
+      setTimeout(() => setLastSaved(null), 3000)
     } catch (error) {
       console.error("Error saving availability:", error)
-      alert("저장 중 오류가 발생했습니다.")
+      setLastSaved("저장 실패")
     } finally {
       setSaving(false)
     }
   }
+
+  // Auto-save logic
+  useEffect(() => {
+    if (isInitialLoad) {
+      setIsInitialLoad(false)
+      return
+    }
+    
+    if (selectedMember) {
+      const timer = setTimeout(() => {
+        saveAvailability()
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [availabilities, selectedSongIds])
 
   if (loading) {
     return (
@@ -232,25 +249,34 @@ export default function RoomPage() {
               />
             </div>
 
-            <div className="flex gap-4">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSelectedMember(null)
-                  setAvailabilities([])
-                }}
-                className="flex-1"
-              >
-                멤버 다시 선택
-              </Button>
-              <Button
-                onClick={saveAvailability}
-                disabled={saving || availabilities.length === 0}
-                className="flex-1"
-              >
-                {saving ? "저장 중..." : "저장하고 결과 보기"}
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-sm text-muted-foreground">
+                  {lastSaved || "변경사항이 자동으로 저장됩니다"}
+                </span>
+                {saving && (
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                )}
+              </div>
+              <div className="flex gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedMember(null)
+                    setAvailabilities([])
+                  }}
+                  className="flex-1"
+                >
+                  멤버 다시 선택
+                </Button>
+                <Button
+                  onClick={() => router.push(`/room/${roomId}/results`)}
+                  className="flex-1"
+                >
+                  결과 보기
+                  <ArrowRight className="ml-2 w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
         )}

@@ -152,8 +152,19 @@ export default function ResultsPage() {
     selectedHeatmapTs != null
       ? heatmapData.find((c) => c.timestamp === selectedHeatmapTs) ?? null
       : null
+  
+  // 1. Identify members who have EVER marked their time (have any records in availabilities)
+  const memberIdsWithAnyData = new Set(availabilities.map((a) => a.member_id))
+  
   const availableIds = new Set(selectedCell?.memberIds ?? [])
-  const unavailableIds = allMemberIds.filter((id) => !availableIds.has(id))
+  
+  // 2. Not Participating: Marked time but not available at this cell
+  const unavailableIds = allMemberIds.filter(
+    (id) => !availableIds.has(id) && memberIdsWithAnyData.has(id)
+  )
+  
+  // 3. Haven't Marked Time: No records at all
+  const notRespondedIds = allMemberIds.filter((id) => !memberIdsWithAnyData.has(id))
 
   return (
     <div className="min-h-screen bg-background">
@@ -242,6 +253,29 @@ export default function ResultsPage() {
                               .map((id) => memberNames.get(id) || "알 수 없음")
                               .map((name) => (
                                 <div key={name} className="text-sm text-muted-foreground">
+                                  {name}
+                                </div>
+                              ))
+                          ) : (
+                            <div className="text-sm text-muted-foreground">없음</div>
+                          )
+                        ) : (
+                          <div className="text-sm text-muted-foreground">-</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-sm font-semibold text-orange-500">
+                        표시하지 않은 인원 ({selectedCell ? notRespondedIds.length : 0})
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {selectedCell ? (
+                          notRespondedIds.length > 0 ? (
+                            notRespondedIds
+                              .map((id) => memberNames.get(id) || "알 수 없음")
+                              .map((name) => (
+                                <div key={name} className="text-sm text-orange-500/70">
                                   {name}
                                 </div>
                               ))
