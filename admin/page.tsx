@@ -218,8 +218,8 @@ export default function AdminPage() {
                               } catch (e) {
                                 const message =
                                   typeof e === "object" &&
-                                  e !== null &&
-                                  "message" in e
+                                    e !== null &&
+                                    "message" in e
                                     ? String((e as any).message)
                                     : "삭제에 실패했습니다."
                                 alert(

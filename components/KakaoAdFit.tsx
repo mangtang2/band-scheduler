@@ -24,7 +24,7 @@ export default function KakaoAdFit() {
     // 광고가 로드되기 전에도 화면이 덜컹거리지 않게 최소 크기(250x250)를 잡아줍니다.
     <div 
       ref={scriptElementWrapper} 
-      className="flex justify-center items-center min-w-[250px] min-h-[250px] bg-gray-50 rounded-lg overflow-hidden"
+      className="flex justify-center items-center min-w-[250px] min-h-[250px] bg-gray-50"
     >
       <ins
         className="kakao_ad_area"

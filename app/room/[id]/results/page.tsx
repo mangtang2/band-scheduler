@@ -291,7 +291,7 @@ export default function ResultsPage() {
                 </div>
 
                 {/* 🔴 신규: 광고 박스 (명단 바로 아래에 착 붙습니다!) */}
-                <div className="rounded-lg border bg-background p-4 flex flex-col items-center justify-center">
+                <div className="border bg-background p-4 flex flex-col items-center justify-center">
                   <span className="text-xs text-muted-foreground mb-2">스폰서 광고</span>
                   <KakaoAdFit />
                 </div>
