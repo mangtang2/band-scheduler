@@ -29,7 +29,7 @@ export default function CreateRoomPage() {
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [dailyStartHour, setDailyStartHour] = useState(9)
-  const [dailyEndHour, setDailyEndHour] = useState(23)
+  const [dailyEndHour, setDailyEndHour] = useState(24)
 
   // Step 2: Members
   const [members, setMembers] = useState<Member[]>([{ name: "" }])
@@ -113,7 +113,7 @@ export default function CreateRoomPage() {
         (roomError.message.includes("daily_end_hour") ||
           roomError.message.includes("daily_start_hour"))
       ) {
-        ;({ data: room, error: roomError } = await insertRoom({
+        ; ({ data: room, error: roomError } = await insertRoom({
           name: roomName,
           password: password || null,
           start_date: startDate,
@@ -166,8 +166,8 @@ export default function CreateRoomPage() {
         message.includes("Load failed") || message.includes("Failed to fetch")
           ? "\n\n네트워크 요청이 실패했습니다. (Supabase URL/키가 잘못됐거나, .env.local 변경 후 서버 재시작이 필요하거나, 네트워크/차단 이슈일 수 있어요.)"
           : message.includes("daily_end_hour") || message.includes("daily_start_hour")
-          ? "\n\nSupabase DB의 rooms 테이블에 daily_start_hour / daily_end_hour 컬럼이 없습니다. schema.sql 내용을 Supabase에 반영(ALTER TABLE)한 뒤 다시 시도하세요."
-          : ""
+            ? "\n\nSupabase DB의 rooms 테이블에 daily_start_hour / daily_end_hour 컬럼이 없습니다. schema.sql 내용을 Supabase에 반영(ALTER TABLE)한 뒤 다시 시도하세요."
+            : ""
       alert(`방 생성 중 오류가 발생했습니다.\n\n${message}${hint}`)
     } finally {
       setLoading(false)
@@ -211,13 +211,12 @@ export default function CreateRoomPage() {
             {[1, 2, 3].map((s) => (
               <div
                 key={s}
-                className={`flex items-center justify-center w-10 h-10 rounded-full font-bold ${
-                  s === step
-                    ? "bg-primary text-primary-foreground"
-                    : s < step
+                className={`flex items-center justify-center w-10 h-10 rounded-full font-bold ${s === step
+                  ? "bg-primary text-primary-foreground"
+                  : s < step
                     ? "bg-primary/20 text-primary"
                     : "bg-muted text-muted-foreground"
-                }`}
+                  }`}
               >
                 {s}
               </div>
@@ -303,11 +302,14 @@ export default function CreateRoomPage() {
                   value={dailyEndHour}
                   onChange={(e) => setDailyEndHour(Number(e.target.value))}
                 >
-                  {Array.from({ length: 24 }).map((_, h) => (
-                    <option key={h} value={h}>
-                      {h.toString().padStart(2, "0")}:00
-                    </option>
-                  ))}
+                  {Array.from({ length: 24 }).map((_, i) => {
+                    const h = i + 1
+                    return (
+                      <option key={h} value={h}>
+                        {h.toString().padStart(2, "0")}:00
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
             </div>

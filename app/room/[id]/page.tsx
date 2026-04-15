@@ -1,13 +1,11 @@
-'use client'
-
-import { useCallback, useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { checkRoomAccess, verifyRoomPassword } from "@/app/actions"
+import { Input } from "@/components/ui/input"
 import { supabase, Room, Member, Song } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AvailabilityGrid } from "@/components/availability-grid"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Lock } from "lucide-react"
 
 export default function RoomPage() {
   const params = useParams<{ id: string }>()
@@ -27,10 +25,27 @@ export default function RoomPage() {
   const [lastSaved, setLastSaved] = useState<string | null>(null)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
 
+  // Password protection state
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null)
+  const [roomPassword, setRoomPassword] = useState("")
+  const [verifying, setVerifying] = useState(false)
+
   const loadRoomData = useCallback(async () => {
     if (!roomId) return
     setLoading(true)
     try {
+      // 1. Check access first
+      const access = await checkRoomAccess(roomId)
+      setHasAccess(access)
+      
+      if (!access) {
+        // Still load room name for the password screen if possible
+        const { data: basicRoom } = await supabase.from("rooms").select("name").eq("id", roomId).single()
+        if (basicRoom) setRoom(basicRoom as any)
+        return
+      }
+
+      // 2. Load full data if has access
       const { data: roomData, error: roomError } = await supabase
         .from("rooms")
         .select("*")
@@ -66,6 +81,22 @@ export default function RoomPage() {
   useEffect(() => {
     loadRoomData()
   }, [loadRoomData])
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setVerifying(true)
+    try {
+      const result = await verifyRoomPassword(roomId, roomPassword)
+      if (result.success) {
+        setHasAccess(true)
+        loadRoomData()
+      } else {
+        alert(result.error || "비밀번호가 틀렸습니다.")
+      }
+    } finally {
+      setVerifying(false)
+    }
+  }
 
   const handleMemberSelect = async (member: Member) => {
     setSelectedMember(member)
@@ -172,6 +203,42 @@ export default function RoomPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">방을 찾을 수 없습니다.</div>
+      </div>
+    )
+  }
+
+  if (hasAccess === false) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="w-full max-w-sm rounded-2xl border bg-card shadow-lg p-8">
+          <div className="flex justify-center mb-6">
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+              <Lock className="w-6 h-6 text-primary" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-center mb-2">{room?.name || "보호된 방"}</h2>
+          <p className="text-sm text-muted-foreground text-center mb-8">
+            이 방은 비밀번호로 보호되어 있습니다.<br />비밀번호를 입력하여 접속하세요.
+          </p>
+
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="room-password">비밀번호</Label>
+              <Input
+                id="room-password"
+                type="password"
+                value={roomPassword}
+                onChange={(e) => setRoomPassword(e.target.value)}
+                placeholder="방 비밀번호 입력"
+                autoFocus
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={verifying}>
+              {verifying ? "확인 중..." : "접속하기"}
+            </Button>
+          </form>
+        </div>
       </div>
     )
   }

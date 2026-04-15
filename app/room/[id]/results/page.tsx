@@ -1,12 +1,13 @@
 'use client'
 
-import KakaoAdFit from '@/components/KakaoAdFit';
 import { useCallback, useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { supabase, Room, Member, Song, Availability } from "@/lib/supabase"
 import { ResultsHeatmap } from "@/components/results-heatmap"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   generateHeatmap,
   generateRecommendations,
@@ -15,7 +16,9 @@ import {
 } from "@/lib/utils/schedule"
 import { format } from "date-fns"
 import { ko } from "date-fns/locale"
-import { Calendar, Clock, Users } from "lucide-react"
+import { Calendar, Clock, Users, Lock } from "lucide-react"
+import KakaoAdFit from '@/components/KakaoAdFit';
+import { checkRoomAccess, verifyRoomPassword } from "@/app/actions"
 
 export default function ResultsPage() {
   const params = useParams<{ id: string }>()
@@ -31,9 +34,26 @@ export default function ResultsPage() {
   const [requiredFilters, setRequiredFilters] = useState<Record<string, string[]>>({})
   const [selectedHeatmapTs, setSelectedHeatmapTs] = useState<number | null>(null)
 
+  // Password protection state
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null)
+  const [roomPassword, setRoomPassword] = useState("")
+  const [verifying, setVerifying] = useState(false)
+
   const loadData = useCallback(async () => {
     if (!roomId) return
+    setLoading(true)
     try {
+      // 1. Check access first
+      const access = await checkRoomAccess(roomId)
+      setHasAccess(access)
+
+      if (!access) {
+        // Still load room name for the password screen
+        const { data: basicRoom } = await supabase.from("rooms").select("name").eq("id", roomId).single()
+        if (basicRoom) setRoom(basicRoom as any)
+        return
+      }
+
       const { data: roomData, error: roomError } = await supabase
         .from("rooms")
         .select("*")
@@ -79,8 +99,24 @@ export default function ResultsPage() {
     }
   }, [roomId])
 
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setVerifying(true)
+    try {
+      const result = await verifyRoomPassword(roomId, roomPassword)
+      if (result.success) {
+        setHasAccess(true)
+        loadData()
+      } else {
+        alert(result.error || "비밀번호가 틀렸습니다.")
+      }
+    } finally {
+      setVerifying(false)
+    }
+  }
+
   const calculateRecommendations = useCallback(() => {
-    if (!room) return
+    if (!room || !hasAccess) return
 
     const recs = generateRecommendations(
       songs,
@@ -92,17 +128,17 @@ export default function ResultsPage() {
       requiredFilters
     )
     setRecommendations(recs)
-  }, [room, songs, availabilities, members, minDuration, requiredFilters])
+  }, [room, songs, availabilities, members, minDuration, requiredFilters, hasAccess])
 
   useEffect(() => {
     loadData()
   }, [loadData])
 
   useEffect(() => {
-    if (room && members.length > 0 && songs.length > 0) {
+    if (room && members.length > 0 && songs.length > 0 && hasAccess) {
       calculateRecommendations()
     }
-  }, [calculateRecommendations, room, members.length, songs.length])
+  }, [calculateRecommendations, room, members.length, songs.length, hasAccess])
 
   const toggleRequiredMember = (songId: string, memberId: string) => {
     setRequiredFilters((prev) => {
@@ -137,6 +173,42 @@ export default function ResultsPage() {
     )
   }
 
+  if (hasAccess === false) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="w-full max-w-sm rounded-2xl border bg-card shadow-lg p-8">
+          <div className="flex justify-center mb-6">
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+              <Lock className="w-6 h-6 text-primary" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-center mb-2">{room?.name || "보호된 결과"}</h2>
+          <p className="text-sm text-muted-foreground text-center mb-8">
+            이 결과 페이지는 비밀번호로 보호되어 있습니다.<br />비밀번호를 입력하여 확인하세요.
+          </p>
+
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="room-password">비밀번호</Label>
+              <Input
+                id="room-password"
+                type="password"
+                value={roomPassword}
+                onChange={(e) => setRoomPassword(e.target.value)}
+                placeholder="방 비밀번호 입력"
+                autoFocus
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={verifying}>
+              {verifying ? "확인 중..." : "접속하기"}
+            </Button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   const heatmapData = generateHeatmap(
     availabilities,
     new Date(room.start_date),
@@ -153,17 +225,11 @@ export default function ResultsPage() {
       ? heatmapData.find((c) => c.timestamp === selectedHeatmapTs) ?? null
       : null
   
-  // 1. Identify members who have EVER marked their time (have any records in availabilities)
   const memberIdsWithAnyData = new Set(availabilities.map((a) => a.member_id))
-  
   const availableIds = new Set(selectedCell?.memberIds ?? [])
-  
-  // 2. Not Participating: Marked time but not available at this cell
   const unavailableIds = allMemberIds.filter(
     (id) => !availableIds.has(id) && memberIdsWithAnyData.has(id)
   )
-  
-  // 3. Haven't Marked Time: No records at all
   const notRespondedIds = allMemberIds.filter((id) => !memberIdsWithAnyData.has(id))
 
   return (
@@ -179,7 +245,6 @@ export default function ResultsPage() {
           <h2 className="text-2xl font-semibold mb-4">전체 가능 시간 현황</h2>
           <div className="bg-card border rounded-lg p-4">
             <div className="flex flex-col md:flex-row gap-4">
-              {/* Left heatmap (3/4) */}
               <div className="md:w-3/4 w-full">
                 <ResultsHeatmap
                   heatmapData={heatmapData}
@@ -198,9 +263,7 @@ export default function ResultsPage() {
                 />
               </div>
 
-              {/* Right sidebar (1/4) - 명단 및 광고 영역 */}
               <div className="md:w-1/4 w-full flex flex-col gap-4">
-                {/* 기존: 참여 현황 박스 */}
                 <div className="rounded-lg border bg-background p-4 flex-1">
                   <div className="font-semibold">참여 현황</div>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -290,7 +353,6 @@ export default function ResultsPage() {
                   </div>
                 </div>
 
-                {/* 🔴 신규: 광고 박스 (명단 바로 아래에 착 붙습니다!) */}
                 <div className="border bg-background p-4 flex flex-col items-center justify-center">
                   <span className="text-xs text-muted-foreground mb-2">스폰서 광고</span>
                   <KakaoAdFit />

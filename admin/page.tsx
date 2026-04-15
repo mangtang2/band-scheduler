@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { checkAdminSession, verifyAdminPassword, logoutAdmin } from "@/app/actions"
 
 type RoomRow = {
   id: string
@@ -21,10 +22,8 @@ function formatDateTime(value: string | null) {
 }
 
 export default function AdminPage() {
-  const ADMIN_PASSWORD = "xhspe"
-
   const [password, setPassword] = useState("")
-  const [authed, setAuthed] = useState(false)
+  const [authed, setAuthed] = useState<boolean | null>(null) // null means checking
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null)
 
   const [rooms, setRooms] = useState<RoomRow[]>([])
@@ -33,8 +32,15 @@ export default function AdminPage() {
 
   const canSubmit = useMemo(() => password.length > 0, [password])
 
+  // Check session on load
   useEffect(() => {
-    if (!authed) return
+    checkAdminSession().then((isAuthed) => {
+      setAuthed(isAuthed)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (authed !== true) return
 
     let cancelled = false
 
@@ -67,25 +73,44 @@ export default function AdminPage() {
     }
   }, [authed])
 
-  if (!authed) {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const result = await verifyAdminPassword(password)
+    if (result.success) {
+      setAuthed(true)
+    } else {
+      alert("비밀번호가 올바르지 않습니다.")
+    }
+  }
+
+  const handleLogout = async () => {
+    await logoutAdmin()
+    setAuthed(false)
+    setPassword("")
+    setRooms([])
+    setError(null)
+  }
+
+  if (authed === null) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-sm text-muted-foreground animate-pulse">Checking session...</div>
+      </div>
+    )
+  }
+
+  if (authed === false) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="w-full max-w-sm rounded-2xl border bg-card shadow-sm p-6">
-          <div className="text-lg font-semibold">관리자 비밀번호 입력</div>
+          <div className="text-lg font-semibold">관리자 대시보드</div>
           <p className="mt-1 text-sm text-muted-foreground">
-            비밀번호가 맞으면 대시보드가 열립니다.
+            접근하려면 비밀번호를 입력하세요.
           </p>
 
           <form
             className="mt-6 space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (password === ADMIN_PASSWORD) {
-                setAuthed(true)
-                return
-              }
-              alert("비밀번호가 올바르지 않습니다.")
-            }}
+            onSubmit={handleLogin}
           >
             <input
               className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
@@ -116,21 +141,17 @@ export default function AdminPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">관리자 대시보드</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              방 목록을 최신순으로 확인합니다.
+              방 목록을 최신순으로 확인합니다 (인증됨).
             </p>
           </div>
           <button
             className="rounded-md border px-3 py-2 text-sm hover:bg-muted"
-            onClick={() => {
-              setAuthed(false)
-              setPassword("")
-              setRooms([])
-              setError(null)
-            }}
+            onClick={handleLogout}
           >
-            잠금
+            로그아웃
           </button>
         </div>
+
 
         <div className="mt-8 rounded-xl border bg-card shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b">
