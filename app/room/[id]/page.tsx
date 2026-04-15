@@ -1,3 +1,7 @@
+'use client'
+
+import { useState, useEffect, useCallback } from "react"
+import { useParams, useRouter } from "next/navigation"
 import { checkRoomAccess, verifyRoomPassword } from "@/app/actions"
 import { Input } from "@/components/ui/input"
 import { supabase, Room, Member, Song } from "@/lib/supabase"
