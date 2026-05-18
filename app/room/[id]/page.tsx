@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AvailabilityGrid } from "@/components/availability-grid"
-import { ArrowRight, Lock } from "lucide-react"
+import { ArrowRight, Lock, MessageCircle } from "lucide-react"
+import { shareKakaoToInput } from "@/lib/utils/kakao"
 
 export default function RoomPage() {
   const params = useParams<{ id: string }>()
@@ -271,6 +272,20 @@ export default function RoomPage() {
                   <span className="text-lg">{member.name}</span>
                 </Button>
               ))}
+            </div>
+            
+            <div className="mt-8 pt-6 border-t">
+              <Button
+                variant="outline"
+                className="w-full h-12 bg-[#FEE500] hover:bg-[#FEE500]/90 text-[#000000] border-none font-semibold flex items-center justify-center gap-2"
+                onClick={() => shareKakaoToInput(roomId, room.name)}
+              >
+                <MessageCircle className="w-5 h-5 fill-black" />
+                카카오톡으로 멤버들에게 입력 독려하기
+              </Button>
+              <p className="text-xs text-center text-muted-foreground mt-3">
+                버튼을 누르면 단톡방으로 예쁜 초대장이 전송됩니다.
+              </p>
             </div>
           </div>
         ) : (

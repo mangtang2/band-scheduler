@@ -16,9 +16,10 @@ import {
 } from "@/lib/utils/schedule"
 import { format } from "date-fns"
 import { ko } from "date-fns/locale"
-import { Calendar, Clock, Users, Lock } from "lucide-react"
+import { Calendar, Clock, Users, Lock, MessageCircle } from "lucide-react"
 import KakaoAdFit from '@/components/KakaoAdFit';
 import { checkRoomAccess, verifyRoomPassword } from "@/app/actions"
+import { shareKakaoResult } from "@/lib/utils/kakao"
 
 export default function ResultsPage() {
   const params = useParams<{ id: string }>()
@@ -471,13 +472,28 @@ export default function ResultsPage() {
                               </div>
                             )}
                           </div>
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-primary">
-                              {slot.memberCount}/{rec.requiredMemberIds.length}
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-primary">
+                                {slot.memberCount}/{rec.requiredMemberIds.length}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                참석 가능
+                              </div>
                             </div>
-                            <div className="text-xs text-muted-foreground">
-                              참석 가능
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="ml-2 hover:bg-[#FEE500]/20 text-[#FEE500]"
+                              onClick={() => {
+                                const dateStr = format(slot.start, "M월 d일 (EEE)", { locale: ko })
+                                const timeStr = `${format(slot.start, "HH:mm")} - ${format(slot.end, "HH:mm")}`
+                                shareKakaoResult(roomId, room.name, dateStr, timeStr)
+                              }}
+                              title="카카오톡으로 이 일정 공유하기"
+                            >
+                              <MessageCircle className="w-5 h-5 fill-[#FEE500] text-[#000000]" />
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -501,7 +517,7 @@ export default function ResultsPage() {
           <p className="text-sm text-muted-foreground mb-3">
             아래 링크를 복사하여 밴드 멤버들에게 공유하세요
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               readOnly
@@ -512,18 +528,31 @@ export default function ResultsPage() {
               }
               className="flex-1 px-3 py-2 bg-background border rounded-md text-sm"
             />
-            <button
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  const url = `${window.location.origin}/room/${roomId}`
-                  navigator.clipboard.writeText(url)
-                  alert("링크가 복사되었습니다!")
-                }
-              }}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90"
-            >
-              복사
-            </button>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 sm:flex-none bg-[#FEE500] hover:bg-[#FEE500]/90 text-black border-none"
+                onClick={() => {
+                  import("@/lib/utils/kakao").then(({ shareKakaoToInput }) => {
+                    shareKakaoToInput(roomId, room.name)
+                  })
+                }}
+              >
+                <MessageCircle className="w-4 h-4 fill-black mr-2" />
+                카톡 공유
+              </Button>
+              <Button
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    const url = `${window.location.origin}/room/${roomId}`
+                    navigator.clipboard.writeText(url)
+                    alert("링크가 복사되었습니다!")
+                  }
+                }}
+                className="flex-1 sm:flex-none"
+              >
+                복사
+              </Button>
+            </div>
           </div>
         </div>
       </div>
