@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { Calendar, Users, Activity } from "lucide-react"
 
 type RoomRow = {
   id: string
@@ -32,6 +33,15 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [stats, setStats] = useState({
+    totalRooms: 0,
+    totalMembers: 0,
+    totalSongs: 0,
+    todayRooms: 0,
+    todayMembers: 0,
+    todayActiveUsers: 0,
+  })
+
   const canSubmit = useMemo(() => password.length > 0, [password])
 
   useEffect(() => {
@@ -43,14 +53,56 @@ export default function AdminPage() {
       setLoading(true)
       setError(null)
       try {
-        const { data, error } = await supabase
-          .from("rooms")
-          .select("id,name,created_at")
-          .order("created_at", { ascending: false })
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const todayMidnight = today.toISOString()
 
-        if (error) throw error
+        // 7개의 통계 쿼리를 병렬로 실행하여 응답 성능 극대화
+        const [
+          roomsRes,
+          totalRoomsRes,
+          totalMembersRes,
+          totalSongsRes,
+          todayRoomsRes,
+          todayMembersRes,
+          todayActiveRes,
+        ] = await Promise.all([
+          supabase
+            .from("rooms")
+            .select("id,name,created_at")
+            .order("created_at", { ascending: false }),
+          supabase.from("rooms").select("*", { count: "exact", head: true }),
+          supabase.from("members").select("*", { count: "exact", head: true }),
+          supabase.from("songs").select("*", { count: "exact", head: true }),
+          supabase.from("rooms").select("*", { count: "exact", head: true }).gte("created_at", todayMidnight),
+          supabase.from("members").select("*", { count: "exact", head: true }).gte("created_at", todayMidnight),
+          supabase.from("availabilities").select("member_id").gte("created_at", todayMidnight),
+        ])
+
+        if (roomsRes.error) throw roomsRes.error
+        if (totalRoomsRes.error) throw totalRoomsRes.error
+        if (totalMembersRes.error) throw totalMembersRes.error
+        if (totalSongsRes.error) throw totalSongsRes.error
+        if (todayRoomsRes.error) throw todayRoomsRes.error
+        if (todayMembersRes.error) throw todayMembersRes.error
+        if (todayActiveRes.error) throw todayActiveRes.error
+
         if (cancelled) return
-        setRooms((data ?? []) as RoomRow[])
+
+        setRooms((roomsRes.data ?? []) as RoomRow[])
+
+        const activeMemberIds = todayActiveRes.data
+          ? new Set(todayActiveRes.data.map((a: any) => a.member_id))
+          : new Set()
+
+        setStats({
+          totalRooms: totalRoomsRes.count ?? 0,
+          totalMembers: totalMembersRes.count ?? 0,
+          totalSongs: totalSongsRes.count ?? 0,
+          todayRooms: todayRoomsRes.count ?? 0,
+          todayMembers: todayMembersRes.count ?? 0,
+          todayActiveUsers: activeMemberIds.size,
+        })
       } catch (e) {
         const message =
           typeof e === "object" && e !== null && "message" in e
@@ -131,6 +183,48 @@ export default function AdminPage() {
           >
             잠금
           </button>
+        </div>
+
+        {/* 통계 요약 카드 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          <div className="bg-card border rounded-xl p-6 shadow-sm flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-muted-foreground">누적 개설된 방</div>
+              <div className="text-3xl font-bold mt-2">{stats.totalRooms}개</div>
+              <div className="text-xs text-primary mt-1.5 flex items-center gap-1">
+                오늘 <span className="font-semibold">+{stats.todayRooms}개</span> 생성됨
+              </div>
+            </div>
+            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-primary" />
+            </div>
+          </div>
+
+          <div className="bg-card border rounded-xl p-6 shadow-sm flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-muted-foreground">누적 사용자 (멤버)</div>
+              <div className="text-3xl font-bold mt-2">{stats.totalMembers}명</div>
+              <div className="text-xs text-primary mt-1.5 flex items-center gap-1">
+                오늘 <span className="font-semibold">+{stats.todayMembers}명</span> 등록됨
+              </div>
+            </div>
+            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+              <Users className="w-6 h-6 text-primary" />
+            </div>
+          </div>
+
+          <div className="bg-card border rounded-xl p-6 shadow-sm flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-muted-foreground">오늘 활성 사용자 (DAU)</div>
+              <div className="text-3xl font-bold mt-2">{stats.todayActiveUsers}명</div>
+              <div className="text-xs text-muted-foreground mt-1.5">
+                오늘 시간표를 제출/수정한 사용자
+              </div>
+            </div>
+            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+              <Activity className="w-6 h-6 text-primary" />
+            </div>
+          </div>
         </div>
 
         <div className="mt-8 rounded-xl border bg-card shadow-sm overflow-hidden">
