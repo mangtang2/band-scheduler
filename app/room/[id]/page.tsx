@@ -52,7 +52,7 @@ export default function RoomPage() {
       // 2. Load full data if has access
       const { data: roomData, error: roomError } = await supabase
         .from("rooms")
-        .select("*")
+        .select("id, name, start_date, end_date, daily_start_hour, daily_end_hour, created_at")
         .eq("id", roomId)
         .single()
 

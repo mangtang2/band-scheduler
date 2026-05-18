@@ -2,6 +2,16 @@
 
 import { cookies } from "next/headers"
 import { supabase } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
+
+// 관리자 전용 우회(Bypass RLS) 클라이언트
+// .env에 SUPABASE_SERVICE_ROLE_KEY가 등록되어 있어야만 작동합니다.
+const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
+  : supabase // 키가 없으면 기존 anon 키로 임시 동작(경고용)
 
 /**
  * Verifies the admin password and sets a secure cookie.
@@ -82,4 +92,30 @@ export async function checkRoomAccess(roomId: string) {
   // Otherwise, check for the cookie
   const session = cookies().get(`room_access_${roomId}`)
   return session?.value === "true"
+}
+
+/**
+ * Safely deletes a room from the server side.
+ * Requires a valid admin session.
+ */
+export async function deleteRoom(roomId: string) {
+  const isAdmin = await checkAdminSession()
+  if (!isAdmin) {
+    return { success: false, error: "관리자 권한이 없습니다." }
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn("SUPABASE_SERVICE_ROLE_KEY가 없어 권한 문제가 발생할 수 있습니다.")
+  }
+
+  const { error } = await supabaseAdmin
+    .from("rooms")
+    .delete()
+    .eq("id", roomId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
 }

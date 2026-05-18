@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Calendar, Users, Activity } from "lucide-react"
+import { verifyAdminPassword, checkAdminSession, logoutAdmin, deleteRoom } from "@/app/actions"
 
 type RoomRow = {
   id: string
@@ -22,16 +23,22 @@ function formatDateTime(value: string | null) {
 }
 
 export default function AdminPage() {
-  const ADMIN_PASSWORD = "xhspe"
-
   const [password, setPassword] = useState("")
   const [authed, setAuthed] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const [reloadNonce, setReloadNonce] = useState(0)
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null)
 
   const [rooms, setRooms] = useState<RoomRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    checkAdminSession().then((isValid) => {
+      if (isValid) setAuthed(true)
+      setCheckingAuth(false)
+    })
+  }, [])
 
   const [stats, setStats] = useState({
     totalRooms: 0,
@@ -120,6 +127,14 @@ export default function AdminPage() {
     }
   }, [authed, reloadNonce])
 
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 text-sm text-muted-foreground">
+        세션 확인 중...
+      </div>
+    )
+  }
+
   if (!authed) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -131,9 +146,10 @@ export default function AdminPage() {
 
           <form
             className="mt-6 space-y-3"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault()
-              if (password === ADMIN_PASSWORD) {
+              const { success } = await verifyAdminPassword(password)
+              if (success) {
                 setAuthed(true)
                 return
               }
@@ -174,7 +190,8 @@ export default function AdminPage() {
           </div>
           <button
             className="rounded-md border px-3 py-2 text-sm hover:bg-muted"
-            onClick={() => {
+            onClick={async () => {
+              await logoutAdmin()
               setAuthed(false)
               setPassword("")
               setRooms([])
@@ -304,11 +321,8 @@ export default function AdminPage() {
 
                               setDeletingRoomId(r.id)
                               try {
-                                const { error } = await supabase
-                                  .from("rooms")
-                                  .delete()
-                                  .eq("id", r.id)
-                                if (error) throw error
+                                const { success, error } = await deleteRoom(r.id)
+                                if (!success) throw new Error(error || "삭제에 실패했습니다.")
                                 setRooms((prev) => prev.filter((x) => x.id !== r.id))
                               } catch (e) {
                                 const message =
