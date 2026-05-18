@@ -86,8 +86,8 @@ export function ResultsHeatmap({
     <div className="w-full overflow-x-auto pb-2">
       <div className="inline-block min-w-full">
         {/* Header */}
-        <div className="flex sticky top-0 bg-background z-10 border-b">
-          <div className="w-16 flex-shrink-0" />
+        <div className="flex sticky top-0 bg-background z-20 border-b">
+          <div className="w-16 flex-shrink-0 sticky left-0 z-20 bg-background" />
           {dates.map((dateKey) => {
             const date = new Date(dateKey)
             return (
@@ -107,7 +107,7 @@ export function ResultsHeatmap({
         {/* Grid */}
         <div className="flex">
           {/* Time labels */}
-          <div className="w-16 flex-shrink-0">
+          <div className="w-16 flex-shrink-0 sticky left-0 z-10 bg-background">
             {timeSlots.map((slot, idx) => (
               <div
                 key={idx}

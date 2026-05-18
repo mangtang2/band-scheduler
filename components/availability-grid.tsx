@@ -50,6 +50,10 @@ export function AvailabilityGrid({
   // 성능 최적화: 연속 드래그 시 같은 칸에서 불필요한 계산을 막기 위한 Ref
   const lastHoveredRef = useRef<{ dayIdx: number; timeIdx: number } | null>(null)
 
+  // 드래그 중 자동 스크롤을 위한 현재 좌표 및 프레임 Ref
+  const pointerPosRef = useRef<{ x: number; y: number } | null>(null)
+  const autoScrollFrameRef = useRef<number | null>(null)
+
   useEffect(() => {
     stateRef.current = {
       isSelecting,
@@ -119,7 +123,8 @@ export function AvailabilityGrid({
     [allBlocks]
   )
 
-  const handlePointerDown = (dayIdx: number, timeIdx: number) => {
+  const handlePointerDown = (e: React.PointerEvent, dayIdx: number, timeIdx: number) => {
+    pointerPosRef.current = { x: e.clientX, y: e.clientY }
     const timestamp = allBlocks[dayIdx][timeIdx].timestamp
     const mode = selectedBlocks.has(timestamp) ? "remove" : "add"
     const newBase = new Set(selectedBlocks)
@@ -146,6 +151,7 @@ export function AvailabilityGrid({
   // 🚀 핵심 2: 마우스 및 터치 좌표 추적 공통 로직
   const handleMove = useCallback(
     (clientX: number, clientY: number) => {
+      pointerPosRef.current = { x: clientX, y: clientY }
       if (!stateRef.current.isSelecting) return
 
       const element = document.elementFromPoint(clientX, clientY)
@@ -226,8 +232,88 @@ export function AvailabilityGrid({
     }
   }, [onSelectionChange])
 
+  // 🚀 자동 스크롤 로직: 화면 가장자리에 닿으면 부드럽게 스크롤
+  useEffect(() => {
+    if (!isSelecting) {
+      if (autoScrollFrameRef.current !== null) {
+        cancelAnimationFrame(autoScrollFrameRef.current)
+        autoScrollFrameRef.current = null
+      }
+      return
+    }
+
+    const scrollSpeed = 8
+    const edgeSize = 60 // 가장자리 감지 영역 (px)
+
+    const autoScroll = () => {
+      if (!pointerPosRef.current) {
+        autoScrollFrameRef.current = requestAnimationFrame(autoScroll)
+        return
+      }
+
+      const { x, y } = pointerPosRef.current
+      const viewportHeight = window.innerHeight
+
+      let scrolled = false
+
+      // 1. 수직 스크롤 (창 전체)
+      if (y > viewportHeight - edgeSize) {
+        window.scrollBy(0, scrollSpeed)
+        scrolled = true
+      } else if (y < edgeSize) {
+        window.scrollBy(0, -scrollSpeed)
+        scrolled = true
+      }
+
+      // 2. 수평 스크롤 (그리드 컨테이너)
+      if (gridRef.current && gridRef.current.parentElement) {
+        const parent = gridRef.current.parentElement
+        const rect = parent.getBoundingClientRect()
+        
+        if (x > rect.right - edgeSize) {
+          parent.scrollLeft += scrollSpeed
+          scrolled = true
+        } else if (x < rect.left + edgeSize) {
+          parent.scrollLeft -= scrollSpeed
+          scrolled = true
+        }
+      }
+
+      if (scrolled) {
+        // 스크롤 후 마우스 아래 요소가 바뀌었을 수 있으므로 강제 업데이트
+        const element = document.elementFromPoint(x, y)
+        if (element) {
+          const dayIdxStr = element.getAttribute("data-dayidx")
+          const timeIdxStr = element.getAttribute("data-timeidx")
+
+          if (dayIdxStr !== null && timeIdxStr !== null) {
+            const dayIdx = parseInt(dayIdxStr, 10)
+            const timeIdx = parseInt(timeIdxStr, 10)
+
+            const last = lastHoveredRef.current
+            if (!last || last.dayIdx !== dayIdx || last.timeIdx !== timeIdx) {
+              lastHoveredRef.current = { dayIdx, timeIdx }
+              applyRectangleSelection(dayIdx, timeIdx)
+            }
+          }
+        }
+      }
+
+      autoScrollFrameRef.current = requestAnimationFrame(autoScroll)
+    }
+
+    autoScrollFrameRef.current = requestAnimationFrame(autoScroll)
+
+    return () => {
+      if (autoScrollFrameRef.current !== null) {
+        cancelAnimationFrame(autoScrollFrameRef.current)
+        autoScrollFrameRef.current = null
+      }
+    }
+  }, [isSelecting, applyRectangleSelection])
+
   return (
-    <div className="w-full overflow-x-auto pb-4 px-4 sm:px-0">
+    <div className="w-full overflow-x-auto pb-4">
       <div
         ref={gridRef}
         // 메인 컨테이너에서 touch-none 제거하여 스크롤 허용
@@ -235,8 +321,8 @@ export function AvailabilityGrid({
         onPointerMove={handlePointerMove}
         onTouchMove={handleTouchMove}
       >
-        <div className="flex sticky top-0 bg-background z-10 border-b">
-          <div className="w-16 flex-shrink-0" />
+        <div className="flex sticky top-0 bg-background z-20 border-b">
+          <div className="w-16 flex-shrink-0 sticky left-0 z-20 bg-background" />
           {dates.map((date, idx) => (
             <div
               key={idx}
@@ -251,7 +337,7 @@ export function AvailabilityGrid({
         </div>
 
         <div className="flex">
-          <div className="w-16 flex-shrink-0">
+          <div className="w-16 flex-shrink-0 sticky left-0 z-10 bg-background">
             {timeSlots.map((slot, idx) => (
               <div
                 key={idx}
@@ -284,7 +370,7 @@ export function AvailabilityGrid({
                         block.minute === 0 ? "border-t-2 border-t-gray-100" : ""
                       )}
                       // 이벤트 꼬임을 막기 위해 onPointerDown 단일 이벤트로 통일
-                      onPointerDown={() => handlePointerDown(dayIdx, timeIdx)}
+                      onPointerDown={(e) => handlePointerDown(e, dayIdx, timeIdx)}
                     />
                   )
                 })}
