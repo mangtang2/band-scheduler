@@ -6,14 +6,24 @@ declare global {
 
 export function initKakao() {
   if (typeof window === "undefined") return false
-  if (!window.Kakao) return false
+  if (!window.Kakao) {
+    alert("카카오 SDK가 아직 로드되지 않았습니다. 잠시 후 다시 시도해 주세요.");
+    return false
+  }
   if (!window.Kakao.isInitialized()) {
     const key = process.env.NEXT_PUBLIC_KAKAO_JS_KEY
     if (!key) {
-      console.warn("Kakao JS Key is missing")
+      alert(".env.local 파일에 NEXT_PUBLIC_KAKAO_JS_KEY가 설정되어 있지 않거나, 서버를 재시작하지 않았습니다.");
+      console.warn("Kakao JS Key is missing in process.env");
       return false
     }
-    window.Kakao.init(key)
+    try {
+      window.Kakao.init(key)
+    } catch (e) {
+      console.error("Kakao SDK initialization failed:", e)
+      alert("카카오 SDK 초기화에 실패했습니다. 키를 확인해 주세요.");
+      return false
+    }
   }
   return true
 }
